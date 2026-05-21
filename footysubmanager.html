@@ -772,6 +772,103 @@
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ===== GOAL BUTTON ===== */
+  .goal-btn {
+    background: none;
+    border: none;
+    font-size: 15px;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    -webkit-tap-highlight-color: rgba(250,204,21,0.3);
+    touch-action: manipulation;
+  }
+  .goal-btn:active { background: rgba(250,204,21,0.2); }
+  .goal-count {
+    font-size: 10px;
+    color: var(--yellow);
+    font-weight: 700;
+    line-height: 1;
+    min-height: 12px;
+  }
+  /* ===== TEAM NAME INPUTS ===== */
+  .team-name-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-size: 15px;
+    font-family: inherit;
+    margin-top: 6px;
+    box-sizing: border-box;
+  }
+  .team-name-input:focus { outline: none; border-color: var(--accent); }
+  /* ===== SEASON STATS SCREEN ===== */
+  .stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .stats-table th {
+    text-align: center;
+    padding: 8px 4px;
+    color: var(--text-muted);
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .stats-table th:first-child { text-align: left; padding-left: 16px; }
+  .stats-table td {
+    text-align: center;
+    padding: 10px 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    color: var(--text);
+  }
+  .stats-table td:first-child { text-align: left; padding-left: 16px; font-weight: 600; }
+  .stats-table tr:last-child td { border-bottom: none; }
+  .stat-highlight { color: var(--accent); font-weight: 700; }
+  .stats-section-title {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 16px 16px 8px;
+  }
+  .season-record {
+    display: flex;
+    justify-content: space-around;
+    padding: 12px 16px;
+    background: var(--surface2);
+    margin: 0 16px 8px;
+    border-radius: 8px;
+  }
+  .season-record-item { text-align: center; }
+  .season-record-num { font-size: 26px; font-weight: 800; color: var(--text); }
+  .season-record-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .game-history-row {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 13px;
+  }
+  .game-history-row:last-child { border-bottom: none; }
+  .game-date { color: var(--text-muted); font-size: 11px; min-width: 72px; }
+  .game-opp { flex: 1; color: var(--text); }
+  .game-score { font-weight: 700; font-size: 15px; margin-left: 8px; }
+  .game-score.win { color: var(--green); }
+  .game-score.loss { color: var(--red); }
+  .game-score.draw { color: var(--yellow); }
 </style>
 </head>
 <body>
@@ -906,8 +1003,18 @@
       </div>
     </div>
 
+    <div class="setting-row">
+      <div class="setting-label">Team Names</div>
+      <input type="text" class="team-name-input" id="team-name-input" placeholder="Your team name..." maxlength="30"
+        oninput="state.teamName = this.value.trim(); updateTeamNameDisplays(); saveSeasonTeamName()">
+      <input type="text" class="team-name-input" id="opp-name-input" placeholder="Today's opponent..." maxlength="30"
+        style="margin-top:8px" oninput="state.oppName = this.value.trim()">
+    </div>
+
     <button class="settings-action-btn" onclick="generateRandomLineup()">🎲 Generate Random Lineup</button>
     <button class="settings-action-btn" onclick="showKeeperRotation()" style="color:var(--accent);border-color:var(--accent)">🧤 Keeper Rotation</button>
+    <button class="settings-action-btn" onclick="showSeasonStats()" style="color:#a78bfa;border-color:#a78bfa">📊 Season Stats</button>
+    <button class="settings-action-btn" onclick="saveGameToSeason()" style="color:var(--green);border-color:var(--green)">💾 Save Game to Season</button>
     <button class="settings-action-btn" onclick="resetGame()" style="color:var(--red);border-color:var(--red);touch-action:manipulation;-webkit-tap-highlight-color:rgba(239,68,68,0.2)">↺ Reset & New Game</button>
     <div style="height:20px"></div>
   </div>
@@ -992,6 +1099,21 @@
   </div>
 </div>
 
+<!-- ========== SEASON STATS SCREEN ========== -->
+<div id="screen-stats" class="screen">
+  <div class="settings-header">
+    <button onclick="switchScreen('settings')" style="background:none;border:none;color:var(--text);font-size:22px;cursor:pointer;">←</button>
+    <h1>📊 Season Stats</h1>
+  </div>
+  <div class="settings-body" style="padding:0;overflow-y:auto" id="stats-content">
+    <!-- Rendered dynamically -->
+  </div>
+  <div class="settings-footer">
+    <button class="footer-btn footer-btn-dark" onclick="clearSeasonData()" style="color:var(--red)">🗑 Clear Season</button>
+    <button class="footer-btn footer-btn-green" onclick="switchScreen('settings')">Done</button>
+  </div>
+</div>
+
 <!-- ========== HALF TIME MODAL ========== -->
 <div id="halftime-modal" class="modal-overlay">
   <div class="confirm-sub-box" style="text-align:center">
@@ -1060,7 +1182,7 @@
   <div class="modal">
     <h2>Score</h2>
     <div class="modal-section">
-      <div class="modal-label">Team</div>
+      <div class="modal-label" id="score-modal-team-label">Team</div>
       <div class="counter-row">
         <button class="counter-btn" onclick="adjustScore('team', -1)">−</button>
         <div class="counter-val" id="modal-team-score">0</div>
@@ -1068,7 +1190,7 @@
       </div>
     </div>
     <div class="modal-section">
-      <div class="modal-label">Opponent</div>
+      <div class="modal-label" id="score-modal-opp-label">Opponent</div>
       <div class="counter-row">
         <button class="counter-btn" onclick="adjustScore('opp', -1)">−</button>
         <div class="counter-val" id="modal-opp-score">0</div>
@@ -1129,7 +1251,11 @@ let state = {
   gameTimerRunning: false,
   gameTimerSecs: 0,
   currentHalf: 1,  // 1 or 2
-  playerTimers: {}, // id -> seconds on field
+  playerTimers: {}, // id -> seconds on field this game
+  playerKeeperTimers: {}, // id -> seconds as keeper this game
+  playerGoals: {}, // id -> goals scored this game
+  teamName: '',
+  oppName: '',
   injuryPause: false,
   nextPlayerId: 10,
   prevScreen: 'game',
@@ -1145,6 +1271,8 @@ let state = {
     warned: false,
   },
 };
+
+let seasonData = { teamName: 'Strikers', games: [] };
 
 let subInterval = null;
 let gameInterval = null;
@@ -1563,8 +1691,15 @@ function confirmKeeperChange() {
   renderKeeperQueue();
 }
 function init() {
+  loadSeasonData();
+  state.teamName = seasonData.teamName || 'Strikers';
+  state.oppName = '';
   state.order = state.players.filter(p => p.inGame).map(p => p.id);
-  state.players.forEach(p => { if (!state.playerTimers[p.id]) state.playerTimers[p.id] = 0; });
+  state.players.forEach(p => {
+    if (!state.playerTimers[p.id]) state.playerTimers[p.id] = 0;
+    if (!state.playerKeeperTimers[p.id]) state.playerKeeperTimers[p.id] = 0;
+    if (!state.playerGoals[p.id]) state.playerGoals[p.id] = 0;
+  });
   state.subTimerSecs = state.settings.subInterval * 60;
   state.gameTimerSecs = state.settings.halfLength * 60;
   state.currentHalf = 1;
@@ -1574,6 +1709,7 @@ function init() {
   updateSubTimerDisplay();
   updateKeeperTimerDisplay();
   updateGameTimerDisplay();
+  syncTeamNameInputs();
 }
 
 // ===== RENDER GAME =====
@@ -1671,6 +1807,16 @@ function renderGame() {
       arrow.className = 'player-arrow ' + (isNextOff ? 'arrow-out' : 'arrow-in');
       arrow.textContent = isNextOff ? '←' : '→';
       row.appendChild(arrow);
+    }
+
+    // Goal button (on-field players only)
+    if (onField) {
+      const goalBtn = document.createElement('button');
+      goalBtn.className = 'goal-btn';
+      goalBtn.title = 'Log goal';
+      goalBtn.innerHTML = '⚽<span class="goal-count">' + ((state.playerGoals[id] || 0) > 0 ? state.playerGoals[id] : '') + '</span>';
+      goalBtn.addEventListener('click', (e) => { e.stopPropagation(); logGoal(id); });
+      row.appendChild(goalBtn);
     }
 
     // Time
@@ -2060,6 +2206,7 @@ function tickGameTimer() {
       // Full time
       showNotification('⏱ Full time!');
       document.getElementById('game-timer-display').textContent = 'FT';
+      saveGameToSeason();
     }
   }
   updateGameTimerDisplay();
@@ -2106,6 +2253,9 @@ function startPlayerTimers() {
       const p = getPlayer(id);
       if (p && p.inGame && idx < slots) {
         state.playerTimers[id] = (state.playerTimers[id] || 0) + 1;
+        if (p.isKeeper && !state.settings.disableKeeper && idx === 0) {
+          state.playerKeeperTimers[id] = (state.playerKeeperTimers[id] || 0) + 1;
+        }
       }
     });
     // Update time displays without full re-render
@@ -2228,6 +2378,7 @@ function renderScoreDisplay() {
 function showScoreModal() {
   document.getElementById('modal-team-score').textContent = state.score.team;
   document.getElementById('modal-opp-score').textContent = state.score.opp;
+  updateTeamNameDisplays();
   document.getElementById('score-modal').classList.add('show');
 }
 
@@ -2244,6 +2395,153 @@ function adjustScore(which, delta) {
 function closeScoreModal() {
   document.getElementById('score-modal').classList.remove('show');
   renderScoreDisplay();
+}
+
+// ===== TEAM NAMES =====
+function updateTeamNameDisplays() {
+  const tl = document.getElementById('score-modal-team-label');
+  const ol = document.getElementById('score-modal-opp-label');
+  if (tl) tl.textContent = state.teamName || 'Team';
+  if (ol) ol.textContent = state.oppName || 'Opponent';
+}
+
+function syncTeamNameInputs() {
+  const ti = document.getElementById('team-name-input');
+  const oi = document.getElementById('opp-name-input');
+  if (ti) ti.value = state.teamName || '';
+  if (oi) oi.value = state.oppName || '';
+  updateTeamNameDisplays();
+}
+
+function saveSeasonTeamName() {
+  seasonData.teamName = state.teamName || 'Strikers';
+  saveSeasonData();
+}
+
+// ===== SEASON DATA =====
+function saveSeasonData() {
+  try { localStorage.setItem('strikers_season', JSON.stringify(seasonData)); } catch(e) {}
+}
+
+function loadSeasonData() {
+  try {
+    const raw = localStorage.getItem('strikers_season');
+    if (raw) seasonData = Object.assign({ teamName: 'Strikers', games: [] }, JSON.parse(raw));
+  } catch(e) {}
+}
+
+function saveGameToSeason() {
+  const playerStats = {};
+  state.players.forEach(p => {
+    playerStats[p.id] = {
+      name: p.name,
+      goals: state.playerGoals[p.id] || 0,
+      fieldSecs: state.playerTimers[p.id] || 0,
+      keeperSecs: state.playerKeeperTimers[p.id] || 0,
+    };
+  });
+  seasonData.teamName = state.teamName || 'Strikers';
+  seasonData.games.push({
+    date: new Date().toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+    opponent: state.oppName || 'Opponent',
+    result: { team: state.score.team, opp: state.score.opp },
+    playerStats,
+  });
+  saveSeasonData();
+  showNotification('📊 Game saved to season!');
+}
+
+function showSeasonStats() {
+  renderSeasonStats();
+  switchScreen('stats');
+}
+
+function renderSeasonStats() {
+  const content = document.getElementById('stats-content');
+  if (!content) return;
+  if (!seasonData.games.length) {
+    content.innerHTML = '<div style="text-align:center;padding:48px 20px;color:var(--text-muted)">No games saved yet.<br><br>Stats save automatically at full time, or use<br><b style="color:var(--text)">💾 Save Game to Season</b> in Settings.</div>';
+    return;
+  }
+
+  // W/L/D
+  let wins = 0, losses = 0, draws = 0;
+  seasonData.games.forEach(g => {
+    if (g.result.team > g.result.opp) wins++;
+    else if (g.result.team < g.result.opp) losses++;
+    else draws++;
+  });
+
+  // Aggregate per-player
+  const agg = {};
+  seasonData.games.forEach(g => {
+    Object.entries(g.playerStats || {}).forEach(([id, ps]) => {
+      if (!agg[id]) agg[id] = { name: ps.name, goals: 0, fieldSecs: 0, keeperSecs: 0, games: 0 };
+      agg[id].name = ps.name;
+      agg[id].goals += ps.goals || 0;
+      agg[id].fieldSecs += ps.fieldSecs || 0;
+      agg[id].keeperSecs += ps.keeperSecs || 0;
+      if ((ps.fieldSecs || 0) > 0 || (ps.goals || 0) > 0) agg[id].games++;
+    });
+  });
+  const sorted = Object.values(agg).filter(p => p.games > 0 || p.goals > 0).sort((a, b) => b.goals - a.goals || b.fieldSecs - a.fieldSecs);
+
+  const rows = sorted.map(p => `<tr>
+    <td>${p.name}</td>
+    <td class="${p.goals > 0 ? 'stat-highlight' : ''}">${p.goals}</td>
+    <td>${fmtMins(p.fieldSecs)}</td>
+    <td>${fmtMins(p.keeperSecs)}</td>
+    <td>${p.games}</td>
+  </tr>`).join('');
+
+  const history = [...seasonData.games].reverse().map(g => {
+    const cls = g.result.team > g.result.opp ? 'win' : g.result.team < g.result.opp ? 'loss' : 'draw';
+    return `<div class="game-history-row">
+      <span class="game-date">${g.date}</span>
+      <span class="game-opp">${g.opponent}</span>
+      <span class="game-score ${cls}">${g.result.team}–${g.result.opp}</span>
+    </div>`;
+  }).join('');
+
+  content.innerHTML = `
+    <div class="stats-section-title">${seasonData.teamName || 'Team'} — ${seasonData.games.length} game${seasonData.games.length !== 1 ? 's' : ''}</div>
+    <div class="season-record">
+      <div class="season-record-item"><div class="season-record-num" style="color:var(--green)">${wins}</div><div class="season-record-label">Wins</div></div>
+      <div class="season-record-item"><div class="season-record-num">${draws}</div><div class="season-record-label">Draws</div></div>
+      <div class="season-record-item"><div class="season-record-num" style="color:var(--red)">${losses}</div><div class="season-record-label">Losses</div></div>
+    </div>
+    <div class="stats-section-title">Player Stats</div>
+    <table class="stats-table">
+      <thead><tr><th>Name</th><th>⚽</th><th>Field</th><th>🥅</th><th>GP</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="stats-section-title">Game History</div>
+    <div>${history}</div>
+    <div style="height:24px"></div>
+  `;
+}
+
+function fmtMins(secs) {
+  const m = Math.floor((secs || 0) / 60);
+  return m + 'm';
+}
+
+function clearSeasonData() {
+  if (!confirm('Clear all season stats? This cannot be undone.')) return;
+  seasonData = { teamName: state.teamName || 'Strikers', games: [] };
+  saveSeasonData();
+  renderSeasonStats();
+  showNotification('Season data cleared');
+}
+
+// ===== GOAL LOGGING =====
+function logGoal(playerId) {
+  state.playerGoals[playerId] = (state.playerGoals[playerId] || 0) + 1;
+  state.score.team++;
+  renderScoreDisplay();
+  const p = getPlayer(playerId);
+  showNotification('⚽ Goal — ' + (p ? p.name : 'Player') + '!');
+  renderGame();
 }
 
 // ===== INJURY =====
@@ -2277,6 +2575,7 @@ function syncSettingsUI() {
   document.getElementById('game-time-val').textContent = s.gameTime;
   document.getElementById('settings-player-count').textContent =
     state.players.filter(p => p.inGame).length;
+  syncTeamNameInputs();
 }
 
 function updateSetting(key, val) {
@@ -2326,8 +2625,12 @@ function resetGame() {
   state.gameTimerSecs = state.settings.halfLength * 60;
   // Reset sub timer
   state.subTimerSecs = state.settings.subInterval * 60;
-  // Reset all player field timers
-  state.players.forEach(p => { state.playerTimers[p.id] = 0; });
+  // Reset all player timers and per-game stats
+  state.players.forEach(p => {
+    state.playerTimers[p.id] = 0;
+    state.playerKeeperTimers[p.id] = 0;
+    state.playerGoals[p.id] = 0;
+  });
   // Reset keeper rotation
   state.keeperRotation.timerSecs = state.keeperRotation.changeIntervalMins * 60;
   state.keeperRotation.currentIdx = 0;
