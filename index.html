@@ -494,6 +494,19 @@
     gap: 12px;
   }
   .players-item:active { background: var(--surface2); }
+  .player-action-btn {
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 8px 6px;
+    border-radius: 6px;
+    color: var(--text-muted);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    flex-shrink: 0;
+  }
+  .player-action-btn:active { background: var(--surface); }
   .players-item-name {
     flex: 1;
     font-size: 17px;
@@ -1126,8 +1139,9 @@
   <div class="settings-body" style="padding:0;overflow-y:auto" id="stats-content">
     <!-- Rendered dynamically -->
   </div>
-  <div class="settings-footer">
-    <button class="footer-btn footer-btn-dark" onclick="clearSeasonData()" style="color:var(--red)">🗑 Clear Season</button>
+  <div class="settings-footer" style="grid-template-columns:1fr 1fr 1fr">
+    <button class="footer-btn footer-btn-dark" onclick="clearSeasonData()" style="color:var(--red)">🗑 Clear</button>
+    <button class="footer-btn footer-btn-dark" onclick="showAddGameModal()" style="color:var(--green)">➕ Add Game</button>
     <button class="footer-btn footer-btn-green" onclick="switchScreen('settings')">Done</button>
   </div>
 </div>
@@ -1216,6 +1230,51 @@
       </div>
     </div>
     <button class="modal-ok" onclick="closeScoreModal()">OK</button>
+  </div>
+</div>
+
+<!-- ========== RENAME PLAYER MODAL ========== -->
+<div id="rename-player-modal" class="modal-overlay">
+  <div class="modal">
+    <h2>Rename Player</h2>
+    <input type="text" id="rename-player-input" class="team-name-input" maxlength="20"
+      placeholder="Player name..." style="margin-top:4px"
+      onkeydown="if(event.key==='Enter')confirmRename()">
+    <button class="modal-ok" style="margin-top:16px" onclick="confirmRename()">Save</button>
+    <button class="confirm-cancel-btn" style="width:100%;margin-top:8px" onclick="closeRenameModal()">Cancel</button>
+  </div>
+</div>
+
+<!-- ========== ADD PAST GAME MODAL ========== -->
+<div id="add-game-modal" class="modal-overlay">
+  <div class="modal">
+    <h2>Add Past Game</h2>
+    <div class="modal-section">
+      <div class="modal-label">Date</div>
+      <input type="date" id="add-game-date" class="team-name-input" style="margin-top:4px">
+    </div>
+    <div class="modal-section">
+      <div class="modal-label">Opponent</div>
+      <input type="text" id="add-game-opp" class="team-name-input" placeholder="Opponent name..." maxlength="30" style="margin-top:4px">
+    </div>
+    <div class="modal-section">
+      <div class="modal-label" id="add-game-team-label">Team</div>
+      <div class="counter-row">
+        <button class="counter-btn" onclick="adjustAddScore('team',-1)">−</button>
+        <div class="counter-val" id="add-game-team-score">0</div>
+        <button class="counter-btn" onclick="adjustAddScore('team',1)">+</button>
+      </div>
+    </div>
+    <div class="modal-section" style="margin-bottom:0">
+      <div class="modal-label" id="add-game-opp-label">Opponent Score</div>
+      <div class="counter-row">
+        <button class="counter-btn" onclick="adjustAddScore('opp',-1)">−</button>
+        <div class="counter-val" id="add-game-opp-score">0</div>
+        <button class="counter-btn" onclick="adjustAddScore('opp',1)">+</button>
+      </div>
+    </div>
+    <button class="modal-ok" style="margin-top:20px" onclick="confirmAddGame()">Add Game</button>
+    <button class="confirm-cancel-btn" style="width:100%;margin-top:8px" onclick="closeAddGameModal()">Cancel</button>
   </div>
 </div>
 
@@ -2833,6 +2892,20 @@ function renderPlayersList() {
     if (p.isKeeper) name.textContent += ' 🥅';
     row.appendChild(name);
 
+    const renameBtn = document.createElement('button');
+    renameBtn.className = 'player-action-btn';
+    renameBtn.textContent = '✏️';
+    renameBtn.title = 'Rename';
+    renameBtn.addEventListener('click', e => { e.stopPropagation(); showRenameModal(p.id); });
+    row.appendChild(renameBtn);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'player-action-btn';
+    deleteBtn.textContent = '🗑';
+    deleteBtn.title = 'Delete';
+    deleteBtn.addEventListener('click', e => { e.stopPropagation(); deletePlayer(p.id); });
+    row.appendChild(deleteBtn);
+
     const check = document.createElement('div');
     check.className = 'check-circle' + (p.inGame ? ' checked' : '');
     check.innerHTML = '<span class="check-icon">✓</span>';
@@ -2865,6 +2938,91 @@ function confirmAddPlayer() {
   document.getElementById('add-player-row').style.display = 'none';
   renderPlayersList();
   saveAppState();
+}
+
+// ===== RENAME PLAYER =====
+let renamingPlayerId = null;
+
+function showRenameModal(id) {
+  renamingPlayerId = id;
+  const p = getPlayer(id);
+  const input = document.getElementById('rename-player-input');
+  input.value = p ? p.name : '';
+  document.getElementById('rename-player-modal').classList.add('show');
+  setTimeout(() => input.focus(), 100);
+}
+
+function closeRenameModal() {
+  document.getElementById('rename-player-modal').classList.remove('show');
+  renamingPlayerId = null;
+}
+
+function confirmRename() {
+  if (renamingPlayerId === null) return;
+  const name = document.getElementById('rename-player-input').value.trim();
+  if (!name) return;
+  const p = getPlayer(renamingPlayerId);
+  if (p) p.name = name;
+  closeRenameModal();
+  renderPlayersList();
+  saveAppState();
+}
+
+// ===== DELETE PLAYER =====
+function deletePlayer(id) {
+  const p = getPlayer(id);
+  if (!p) return;
+  if (!confirm(`Delete ${p.name}? This cannot be undone.`)) return;
+  state.players = state.players.filter(pl => pl.id !== id);
+  state.order = state.order.filter(oid => oid !== id);
+  state.keeperRotation.queue = state.keeperRotation.queue.filter(qid => qid !== id);
+  renderPlayersList();
+  saveAppState();
+}
+
+// ===== ADD PAST GAME =====
+let addGameResult = { team: 0, opp: 0 };
+
+function showAddGameModal() {
+  addGameResult = { team: 0, opp: 0 };
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById('add-game-date').value = today;
+  document.getElementById('add-game-opp').value = '';
+  document.getElementById('add-game-team-score').textContent = '0';
+  document.getElementById('add-game-opp-score').textContent = '0';
+  document.getElementById('add-game-team-label').textContent = seasonData.teamName || state.teamName || 'Team';
+  document.getElementById('add-game-modal').classList.add('show');
+}
+
+function closeAddGameModal() {
+  document.getElementById('add-game-modal').classList.remove('show');
+}
+
+function adjustAddScore(which, delta) {
+  addGameResult[which] = Math.max(0, addGameResult[which] + delta);
+  document.getElementById(which === 'team' ? 'add-game-team-score' : 'add-game-opp-score').textContent = addGameResult[which];
+}
+
+function confirmAddGame() {
+  const opp = document.getElementById('add-game-opp').value.trim() || 'Opponent';
+  const dateVal = document.getElementById('add-game-date').value;
+  let displayDate = '';
+  if (dateVal) {
+    const [y, m, d] = dateVal.split('-');
+    displayDate = `${d}/${m}/${y.slice(2)}`;
+  } else {
+    displayDate = new Date().toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  }
+  seasonData.games.push({
+    date: displayDate,
+    opponent: opp,
+    result: { team: addGameResult.team, opp: addGameResult.opp },
+    playerStats: {},
+  });
+  saveSeasonData();
+  closeAddGameModal();
+  renderSeasonStats();
+  showNotification('✓ Game added');
 }
 
 // ===== SCREEN MANAGEMENT =====
