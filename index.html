@@ -951,9 +951,9 @@
     <div class="setting-row">
       <div class="setting-label">Team Names</div>
       <input type="text" class="team-name-input" id="team-name-input" placeholder="Your team name..." maxlength="30"
-        oninput="state.teamName = this.value.trim(); updateTeamNameDisplays(); saveSeasonTeamName()">
+        oninput="state.teamName = this.value.trim(); updateTeamNameDisplays(); saveSeasonTeamName(); saveAppState()">
       <input type="text" class="team-name-input" id="opp-name-input" placeholder="Today's opponent..." maxlength="30"
-        style="margin-top:8px" oninput="state.oppName = this.value.trim()">
+        style="margin-top:8px" oninput="state.oppName = this.value.trim(); saveAppState()">
     </div>
 
     <button class="settings-action-btn" onclick="showSeasonStats()" style="color:#a78bfa;border-color:#a78bfa">📊 Season Stats</button>
@@ -1474,6 +1474,7 @@ function toggleKeeperRotation(enabled) {
     state.keeperRotation.timerSecs = state.keeperRotation.changeIntervalMins * 60;
   }
   updateKeeperTimerDisplay();
+  saveAppState();
 }
 
 function updateKeeperInterval(val) {
@@ -1484,6 +1485,7 @@ function updateKeeperInterval(val) {
     state.keeperRotation.timerSecs = state.keeperRotation.changeIntervalMins * 60;
   }
   updateKeeperTimerDisplay();
+  saveAppState();
 }
 
 function renderKeeperScreen() {
@@ -1594,6 +1596,7 @@ function addToKeeperQueue(id) {
   }
   renderKeeperQueue();
   renderKeeperPickList();
+  saveAppState();
 }
 
 function removeFromKeeperQueue(id) {
@@ -1603,6 +1606,7 @@ function removeFromKeeperQueue(id) {
   if (kr.currentIdx >= kr.queue.length) kr.currentIdx = 0;
   renderKeeperQueue();
   renderKeeperPickList();
+  saveAppState();
 }
 
 // Touch drag for keeper queue reordering
@@ -1737,8 +1741,9 @@ function confirmKeeperChange() {
 }
 function init() {
   loadSeasonData();
-  state.teamName = seasonData.teamName || 'Strikers';
-  state.oppName = '';
+  loadAppState();
+  state.teamName = state.teamName || seasonData.teamName || 'Strikers';
+  // oppName intentionally not carried over — it's per-game
   state.order = state.players.filter(p => p.inGame).map(p => p.id);
   state.players.forEach(p => {
     if (!state.playerTimers[p.id]) state.playerTimers[p.id] = 0;
@@ -1994,6 +1999,7 @@ function onTouchEnd(e) {
       state.order.splice(di, 0, srcId);
     }
     renderGame();
+    saveAppState();
   }
 
   dragSrc = null;
@@ -2475,6 +2481,43 @@ function loadSeasonData() {
   } catch(e) {}
 }
 
+// ===== APP STATE PERSISTENCE =====
+function saveAppState() {
+  try {
+    localStorage.setItem('strikers_app', JSON.stringify({
+      settings: state.settings,
+      players: state.players,
+      nextPlayerId: state.nextPlayerId,
+      teamName: state.teamName,
+      oppName: state.oppName,
+      keeperRotation: {
+        enabled: state.keeperRotation.enabled,
+        queue: state.keeperRotation.queue,
+        changeIntervalMins: state.keeperRotation.changeIntervalMins,
+      },
+    }));
+  } catch(e) {}
+}
+
+function loadAppState() {
+  try {
+    const raw = localStorage.getItem('strikers_app');
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    if (s.settings) Object.assign(state.settings, s.settings);
+    if (s.players) state.players = s.players;
+    if (s.nextPlayerId) state.nextPlayerId = s.nextPlayerId;
+    if (s.teamName !== undefined) state.teamName = s.teamName;
+    if (s.oppName !== undefined) state.oppName = s.oppName;
+    if (s.keeperRotation) {
+      const kr = state.keeperRotation;
+      if (s.keeperRotation.enabled !== undefined) kr.enabled = s.keeperRotation.enabled;
+      if (s.keeperRotation.queue?.length) kr.queue = s.keeperRotation.queue;
+      if (s.keeperRotation.changeIntervalMins) kr.changeIntervalMins = s.keeperRotation.changeIntervalMins;
+    }
+  } catch(e) {}
+}
+
 function saveGameToSeason() {
   const playerStats = {};
   state.players.forEach(p => {
@@ -2692,6 +2735,7 @@ function updateSetting(key, val) {
     state.gameTimerSecs = state.settings.halfLength * 60;
     updateGameTimerDisplay();
   }
+  saveAppState();
 }
 
 function generateRandomLineup() {
@@ -2796,6 +2840,7 @@ function togglePlayerInGame(id) {
   if (!p) return;
   p.inGame = !p.inGame;
   renderPlayersList();
+  saveAppState();
 }
 
 function showAddPlayerInput() {
@@ -2812,6 +2857,7 @@ function confirmAddPlayer() {
   state.players.push({ id: state.nextPlayerId++, name, inGame: true, isKeeper: false });
   document.getElementById('add-player-row').style.display = 'none';
   renderPlayersList();
+  saveAppState();
 }
 
 // ===== SCREEN MANAGEMENT =====
