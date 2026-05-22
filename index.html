@@ -858,14 +858,19 @@
   .game-history-row {
     display: flex;
     align-items: center;
-    padding: 10px 16px;
+    padding: 12px 16px;
     border-bottom: 1px solid rgba(255,255,255,0.05);
     font-size: 13px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: rgba(255,255,255,0.05);
+    touch-action: manipulation;
   }
+  .game-history-row:active { background: var(--surface2); }
   .game-history-row:last-child { border-bottom: none; }
   .game-date { color: var(--text-muted); font-size: 11px; min-width: 72px; }
   .game-opp { flex: 1; color: var(--text); }
   .game-score { font-weight: 700; font-size: 15px; margin-left: 8px; }
+  .game-edit-hint { font-size: 16px; color: var(--text-muted); margin-left: 10px; }
   .game-score.win { color: var(--green); }
   .game-score.loss { color: var(--red); }
   .game-score.draw { color: var(--yellow); }
@@ -2535,11 +2540,11 @@ function renderSeasonStats() {
 
   const history = seasonData.games.map((g, i) => ({ g, i })).reverse().map(({ g, i }) => {
     const cls = g.result.team > g.result.opp ? 'win' : g.result.team < g.result.opp ? 'loss' : 'draw';
-    return `<div class="game-history-row">
+    return `<div class="game-history-row" onclick="showEditGameModal(${i})">
       <span class="game-date">${g.date}</span>
       <span class="game-opp">${g.opponent}</span>
       <span class="game-score ${cls}">${g.result.team}–${g.result.opp}</span>
-      <button class="game-action-btn" onclick="showEditGameModal(${i})" title="Edit">✏️</button>
+      <span class="game-edit-hint">›</span>
     </div>`;
   }).join('');
 
