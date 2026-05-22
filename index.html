@@ -55,7 +55,7 @@
     background: var(--surface);
     border-bottom: 2px solid var(--border);
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr;
+    grid-template-columns: repeat(5, 1fr);
   }
   .header-btn {
     padding: 14px 8px;
@@ -887,6 +887,61 @@
   .game-score.win { color: var(--green); }
   .game-score.loss { color: var(--red); }
   .game-score.draw { color: var(--yellow); }
+  /* ===== CAMERA PANEL ===== */
+  .camera-panel {
+    flex-shrink: 0;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+  }
+  #camera-preview {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    display: block;
+    background: #000;
+  }
+  .camera-controls {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: #111;
+    gap: 8px;
+    min-height: 52px;
+  }
+  .cam-btn {
+    background: none;
+    border: none;
+    font-size: 26px;
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 50%;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+  .cam-btn:active { background: rgba(255,255,255,0.12); }
+  .rec-indicator {
+    display: none;
+    align-items: center;
+    gap: 6px;
+  }
+  .rec-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ef4444;
+    animation: recblink 1s step-start infinite;
+  }
+  @keyframes recblink { 50% { opacity: 0; } }
+  .rec-time {
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.5px;
+  }
   .game-action-btn {
     background: none;
     border: none;
@@ -916,6 +971,7 @@
     <button class="header-btn" onclick="showSettings()" title="Settings">⚙️</button>
     <button class="header-btn score-btn" onclick="showScoreModal()" id="score-display">0 – 0</button>
     <button class="header-btn" onclick="showInjuryModal()" title="Injury">🩺</button>
+    <button class="header-btn" id="camera-btn" onclick="toggleCamera()" title="Camera">📹</button>
     <button class="header-btn" id="menu-btn" onclick="toggleDragMode()" title="Drag mode">☰</button>
   </div>
 
@@ -937,6 +993,22 @@
   </div>
 
   <div class="player-list" id="player-list"></div>
+
+  <!-- ===== CAMERA PANEL ===== -->
+  <div id="camera-panel" class="camera-panel" style="display:none">
+    <video id="camera-preview" autoplay playsinline muted></video>
+    <div class="camera-controls">
+      <div class="rec-indicator" id="rec-indicator">
+        <div class="rec-dot"></div>
+        <span class="rec-time" id="rec-time">00:00</span>
+      </div>
+      <span style="flex:1"></span>
+      <button class="cam-btn" id="save-clip-btn" onclick="saveClip()" title="Save clip" style="display:none;font-size:22px">💾</button>
+      <button class="cam-btn" onclick="flipCamera()" title="Flip camera" style="font-size:22px">🔄</button>
+      <button class="cam-btn" id="rec-btn" onclick="toggleRecording()" title="Record" style="color:#ef4444">⏺</button>
+      <button class="cam-btn" onclick="closeCamera()" title="Close" style="font-size:20px;color:#888">✕</button>
+    </div>
+  </div>
 
   <div class="bottom-bar">
     <button class="timer-btn" id="sub-timer-btn" onclick="toggleSubTimer()">
@@ -3245,6 +3317,160 @@ window.addEventListener('pagehide', () => {
 window.addEventListener('pageshow', () => {
   if (state.gameTimerRunning && timerStartTimestamp) handleVisibilityChange();
 });
+
+// ===== CAMERA =====
+let cameraStream = null;
+let mediaRecorder = null;
+let recordedChunks = [];
+let lastClipBlob = null;
+let recTimerInterval = null;
+let recSeconds = 0;
+let cameraFacing = 'environment';
+
+async function toggleCamera() {
+  if (cameraStream) {
+    closeCamera();
+  } else {
+    await openCamera();
+  }
+}
+
+async function openCamera() {
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: cameraFacing }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: true,
+    });
+    document.getElementById('camera-preview').srcObject = cameraStream;
+    document.getElementById('camera-panel').style.display = 'flex';
+    document.getElementById('camera-btn').style.color = 'var(--accent)';
+  } catch(e) {
+    showNotification('Camera access denied or unavailable');
+  }
+}
+
+function closeCamera() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+  document.getElementById('camera-preview').srcObject = null;
+  document.getElementById('camera-panel').style.display = 'none';
+  document.getElementById('camera-btn').style.color = '';
+  document.getElementById('rec-btn').textContent = '⏺';
+  document.getElementById('rec-btn').style.color = '#ef4444';
+  document.getElementById('rec-indicator').style.display = 'none';
+  stopRecTimer();
+}
+
+async function flipCamera() {
+  cameraFacing = cameraFacing === 'environment' ? 'user' : 'environment';
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+  }
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: cameraFacing } },
+      audio: true,
+    });
+    document.getElementById('camera-preview').srcObject = cameraStream;
+  } catch(e) {
+    showNotification('Could not switch camera');
+  }
+}
+
+function toggleRecording() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    stopRecording();
+  } else {
+    startRecording();
+  }
+}
+
+function startRecording() {
+  if (!cameraStream) return;
+  recordedChunks = [];
+  lastClipBlob = null;
+  document.getElementById('save-clip-btn').style.display = 'none';
+
+  const mimeType = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm']
+    .find(t => { try { return MediaRecorder.isTypeSupported(t); } catch(e) { return false; } }) || '';
+
+  try {
+    mediaRecorder = mimeType ? new MediaRecorder(cameraStream, { mimeType }) : new MediaRecorder(cameraStream);
+  } catch(e) {
+    showNotification('Recording not supported on this device');
+    return;
+  }
+
+  mediaRecorder.ondataavailable = e => {
+    if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+  };
+
+  mediaRecorder.onstop = () => {
+    const type = mimeType || 'video/mp4';
+    lastClipBlob = new Blob(recordedChunks, { type });
+    document.getElementById('save-clip-btn').style.display = '';
+    document.getElementById('rec-btn').textContent = '⏺';
+    document.getElementById('rec-btn').style.color = '#ef4444';
+    document.getElementById('rec-indicator').style.display = 'none';
+    stopRecTimer();
+  };
+
+  mediaRecorder.start(1000);
+  document.getElementById('rec-btn').textContent = '⏹';
+  document.getElementById('rec-btn').style.color = '#fff';
+  document.getElementById('rec-indicator').style.display = 'flex';
+
+  recSeconds = 0;
+  recTimerInterval = setInterval(() => {
+    recSeconds++;
+    const m = String(Math.floor(recSeconds / 60)).padStart(2, '0');
+    const s = String(recSeconds % 60).padStart(2, '0');
+    document.getElementById('rec-time').textContent = `${m}:${s}`;
+  }, 1000);
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+}
+
+function stopRecTimer() {
+  clearInterval(recTimerInterval);
+  recTimerInterval = null;
+  recSeconds = 0;
+  const el = document.getElementById('rec-time');
+  if (el) el.textContent = '00:00';
+}
+
+async function saveClip() {
+  if (!lastClipBlob) return;
+  const ext = lastClipBlob.type.includes('mp4') ? 'mp4' : 'webm';
+  const filename = `strikers-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.${ext}`;
+  const file = new File([lastClipBlob], filename, { type: lastClipBlob.type });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'Match Clip' });
+    } else {
+      const url = URL.createObjectURL(lastClipBlob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    }
+  } catch(e) {
+    if (e.name !== 'AbortError') showNotification('Could not save clip');
+  }
+}
+
+// Stop camera if user leaves the game screen
+const _origSwitchScreen = switchScreen;
+function switchScreen(name) {
+  if (name !== 'game' && cameraStream) closeCamera();
+  _origSwitchScreen(name);
+}
 
 // ===== START =====
 init();
