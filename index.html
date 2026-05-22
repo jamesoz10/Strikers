@@ -1003,7 +1003,7 @@
         <span class="rec-time" id="rec-time">00:00</span>
       </div>
       <span style="flex:1"></span>
-      <button class="cam-btn" id="save-clip-btn" onclick="saveClip()" title="Save clip" style="display:none;font-size:22px">💾</button>
+      <button class="cam-btn" id="save-clip-btn" onclick="saveClip()" title="Share clip" style="display:none;font-size:22px">↗️</button>
       <button class="cam-btn" onclick="flipCamera()" title="Flip camera" style="font-size:22px">🔄</button>
       <button class="cam-btn" id="rec-btn" onclick="toggleRecording()" title="Record" style="color:#ef4444">⏺</button>
       <button class="cam-btn" onclick="closeCamera()" title="Close" style="font-size:20px;color:#888">✕</button>
@@ -3413,11 +3413,12 @@ function startRecording() {
   mediaRecorder.onstop = () => {
     const type = mimeType || 'video/mp4';
     lastClipBlob = new Blob(recordedChunks, { type });
-    document.getElementById('save-clip-btn').style.display = '';
     document.getElementById('rec-btn').textContent = '⏺';
     document.getElementById('rec-btn').style.color = '#ef4444';
     document.getElementById('rec-indicator').style.display = 'none';
+    document.getElementById('save-clip-btn').style.display = '';
     stopRecTimer();
+    autoSaveClip(lastClipBlob, type);
   };
 
   mediaRecorder.start(1000);
@@ -3446,22 +3447,42 @@ function stopRecTimer() {
   if (el) el.textContent = '00:00';
 }
 
+function clipFilename(blob) {
+  const ext = blob.type.includes('mp4') ? 'mp4' : 'webm';
+  return `strikers-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.${ext}`;
+}
+
+function autoSaveClip(blob, type) {
+  // Programmatic download — saves to Files > Downloads on iPhone automatically
+  try {
+    const filename = clipFilename(blob);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    showNotification('📹 Clip saved to Files');
+  } catch(e) {
+    showNotification('Could not auto-save clip');
+  }
+}
+
 async function saveClip() {
+  // Manual share button — opens share sheet for Photos / AirDrop / Messages etc.
   if (!lastClipBlob) return;
-  const ext = lastClipBlob.type.includes('mp4') ? 'mp4' : 'webm';
-  const filename = `strikers-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.${ext}`;
+  const filename = clipFilename(lastClipBlob);
   const file = new File([lastClipBlob], filename, { type: lastClipBlob.type });
   try {
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({ files: [file], title: 'Match Clip' });
     } else {
-      const url = URL.createObjectURL(lastClipBlob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename; a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      autoSaveClip(lastClipBlob);
     }
   } catch(e) {
-    if (e.name !== 'AbortError') showNotification('Could not save clip');
+    if (e.name !== 'AbortError') showNotification('Could not share clip');
   }
 }
 
