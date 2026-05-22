@@ -1004,19 +1004,20 @@
         💾 Save Clip to Photos / Files
       </button>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;padding:6px 14px;background:#111;border-top:1px solid #222">
-      <span style="font-size:14px">🔍</span>
-      <input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1"
-        oninput="setZoom(this.value)" style="flex:1;accent-color:var(--accent);height:4px">
-      <span id="zoom-label" style="color:#fff;font-size:12px;font-weight:700;min-width:30px;text-align:right">1×</span>
-    </div>
     <div class="camera-controls">
       <div class="rec-indicator" id="rec-indicator">
         <div class="rec-dot"></div>
         <span class="rec-time" id="rec-time">00:00</span>
       </div>
-      <span style="flex:1"></span>
-      <button class="cam-btn" onclick="rotatePreview()" title="Rotate" style="font-size:20px">⟳</button>
+      <span style="font-size:12px;color:#888;margin-left:4px">🔍</span>
+      <input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1"
+        oninput="setZoom(this.value)" style="flex:1;accent-color:var(--accent);height:4px;margin:0 4px">
+      <span id="zoom-label" style="color:#aaa;font-size:11px;font-weight:700;min-width:26px;text-align:right">1×</span>
+      <button class="cam-btn" onclick="rotatePreview()" title="Rotate 90°"
+        style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:2px 5px;line-height:1">
+        <span style="font-size:17px">⟳</span>
+        <span style="font-size:9px;color:#aaa">90°</span>
+      </button>
       <button class="cam-btn" onclick="flipCamera()" title="Flip camera" style="font-size:22px">🔄</button>
       <button class="cam-btn" id="rec-btn" onclick="toggleRecording()" title="Record" style="color:#ef4444">⏺</button>
       <button class="cam-btn" onclick="closeCamera()" title="Close" style="font-size:20px;color:#888">✕</button>
@@ -3341,6 +3342,7 @@ let recSeconds = 0;
 let cameraFacing = 'environment';
 let zoomLevel = 1;
 let videoRotation = 0;
+let currentMimeType = '';
 
 function applyVideoTransform() {
   const preview = document.getElementById('camera-preview');
@@ -3431,7 +3433,7 @@ async function flipCamera() {
 
 function toggleRecording() {
   if (mediaRecorder && mediaRecorder.state === 'recording') {
-    stopRecording();
+    stopAndSave();
   } else {
     startRecording();
   }
@@ -3443,11 +3445,13 @@ function startRecording() {
   lastClipBlob = null;
   document.getElementById('save-clip-bar').style.display = 'none';
 
-  const mimeType = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm']
+  currentMimeType = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm']
     .find(t => { try { return MediaRecorder.isTypeSupported(t); } catch(e) { return false; } }) || '';
 
   try {
-    mediaRecorder = mimeType ? new MediaRecorder(cameraStream, { mimeType }) : new MediaRecorder(cameraStream);
+    mediaRecorder = currentMimeType
+      ? new MediaRecorder(cameraStream, { mimeType: currentMimeType })
+      : new MediaRecorder(cameraStream);
   } catch(e) {
     showNotification('Recording not supported on this device');
     return;
@@ -3458,14 +3462,17 @@ function startRecording() {
   };
 
   mediaRecorder.onstop = () => {
-    const type = mimeType || 'video/mp4';
-    lastClipBlob = new Blob(recordedChunks, { type });
+    // Fallback: only show save button if stopAndSave didn't handle it
+    const panelVisible = document.getElementById('camera-panel').style.display !== 'none';
+    if (!lastClipBlob && recordedChunks.length > 0 && panelVisible) {
+      lastClipBlob = new Blob(recordedChunks, { type: currentMimeType || 'video/mp4' });
+      document.getElementById('save-clip-bar').style.display = '';
+      showNotification('📹 Clip ready — tap Save');
+    }
     document.getElementById('rec-btn').textContent = '⏺';
     document.getElementById('rec-btn').style.color = '#ef4444';
     document.getElementById('rec-indicator').style.display = 'none';
-    document.getElementById('save-clip-bar').style.display = '';
     stopRecTimer();
-    showNotification('📹 Clip ready — tap Save');
   };
 
   mediaRecorder.start(1000);
@@ -3482,8 +3489,41 @@ function startRecording() {
   }, 1000);
 }
 
-function stopRecording() {
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+async function stopAndSave() {
+  if (!mediaRecorder || mediaRecorder.state !== 'recording') return;
+
+  // Build blob now — still within user gesture (stop button tap)
+  const type = currentMimeType || 'video/mp4';
+  const blob = new Blob(recordedChunks, { type });
+
+  // Stop recorder — onstop fires async, losing only the last buffered ~1s chunk
+  mediaRecorder.stop();
+
+  if (blob.size === 0) return;
+
+  const ext = type.includes('mp4') ? 'mp4' : 'webm';
+  const filename = `strikers-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.${ext}`;
+  const file = new File([blob], filename, { type });
+
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      // Called synchronously from gesture — iOS will accept this
+      await navigator.share({ files: [file], title: 'Match Clip' });
+    } else {
+      // Desktop / Android without share API
+      lastClipBlob = blob;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    }
+  } catch(e) {
+    if (e.name !== 'AbortError') {
+      // Share failed — fall back to manual save button
+      lastClipBlob = blob;
+      document.getElementById('save-clip-bar').style.display = '';
+    }
+  }
 }
 
 function stopRecTimer() {
