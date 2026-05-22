@@ -1373,6 +1373,8 @@ let state = {
     timerSecs: 600,
     timerRunning: false,
     warned: false,
+    warned120: false,
+    warned60: false,
   },
 };
 
@@ -2134,11 +2136,31 @@ function playBeep(freq, duration, volume, type) {
   } catch(e) {}
 }
 
-// Prime audio context on first user tap (required by iOS)
-document.addEventListener('touchstart', function primeAudio() {
-  getAudioCtx();
-  document.removeEventListener('touchstart', primeAudio);
-}, { once: true });
+// Unlock AudioContext on first user tap — iOS requires resume() inside a gesture handler
+function unlockAudio() {
+  try {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    // Resume must be called inside a user gesture to unlock on iOS
+    ctx.resume().then(() => {
+      // Play a zero-length silent buffer to fully unblock the audio graph
+      const buf = ctx.createBuffer(1, 1, ctx.sampleRate);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start(0);
+    });
+  } catch(e) {}
+}
+document.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
+document.addEventListener('click', unlockAudio, { once: true, passive: true });
+
+// Re-resume after returning from background (iOS suspends AudioContext)
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+});
 
 // ---- Sub warning: 3 quick beeps + medium taps ----
 function playWarningBeeps() {
@@ -2273,19 +2295,38 @@ function tickKeeperTimer() {
 
   kr.timerSecs--;
 
+  const nextIdx = (kr.currentIdx + 1) % kr.queue.length;
+  const nextName = getPlayer(kr.queue[nextIdx])?.name || '?';
+
+  // 2-minute warning
+  if (kr.timerSecs === 120 && !kr.warned120) {
+    kr.warned120 = true;
+    playKeeperWarningBeeps();
+    showKeeperNotification(`🧤 Keeper change in 2 min — ${nextName} next`);
+  }
+
+  // 1-minute warning
+  if (kr.timerSecs === 60 && !kr.warned60) {
+    kr.warned60 = true;
+    playKeeperWarningBeeps();
+    setTimeout(() => playKeeperWarningBeeps(), 700);
+    showKeeperNotification(`🧤 Keeper change in 1 min — ${nextName} next`);
+  }
+
   // 30-second warning
   if (kr.timerSecs === 30 && !kr.warned) {
     kr.warned = true;
-    const nextIdx = (kr.currentIdx + 1) % kr.queue.length;
-    const nextKeeperId = kr.queue[nextIdx];
-    const nextName = getPlayer(nextKeeperId)?.name || '?';
     playKeeperWarningBeeps();
+    setTimeout(() => playKeeperWarningBeeps(), 700);
+    setTimeout(() => playKeeperWarningBeeps(), 1400);
     showKeeperNotification(`🧤 Keeper change in 30s — ${nextName} next`);
   }
 
   if (kr.timerSecs <= 0) {
     kr.timerSecs = kr.changeIntervalMins * 60;
     kr.warned = false;
+    kr.warned120 = false;
+    kr.warned60 = false;
     triggerKeeperChange();
   }
 
@@ -2347,8 +2388,15 @@ function startSecondHalf() {
   state.gameTimerSecs = state.settings.halfLength * 60;
   // Reset sub timer for 2nd half
   state.subTimerSecs = state.settings.subInterval * 60;
+  // Reset keeper timer and all warnings for 2nd half
+  const kr = state.keeperRotation;
+  kr.timerSecs = kr.changeIntervalMins * 60;
+  kr.warned = false;
+  kr.warned120 = false;
+  kr.warned60 = false;
   updateSubTimerDisplay();
   updateGameTimerDisplay();
+  updateKeeperTimerDisplay();
   // Auto-start both timers
   toggleGameTimer();
   recordTimerStart();
@@ -2837,6 +2885,8 @@ function resetGame() {
   state.keeperRotation.timerSecs = state.keeperRotation.changeIntervalMins * 60;
   state.keeperRotation.currentIdx = 0;
   state.keeperRotation.warned = false;
+  state.keeperRotation.warned120 = false;
+  state.keeperRotation.warned60 = false;
   // Stop everything
   stopAllTimers();
   // Clear sub banner and swap button
