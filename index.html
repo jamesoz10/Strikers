@@ -932,7 +932,8 @@
   <div id="keeper-timer-bar" class="keeper-timer-bar" style="display:none" onclick="showKeeperRotation()">
     <span class="keeper-timer-label">🧤 Keeper change in</span>
     <span class="keeper-timer-value" id="keeper-timer-display">10:00</span>
-    <span style="font-size:12px;color:var(--text-muted);margin-left:8px">Edit ›</span>
+    <span style="font-size:12px;color:var(--text-muted);margin-left:6px;flex:1">Edit ›</span>
+    <button onclick="event.stopPropagation();resetKeeperTimer()" style="background:none;border:1px solid var(--text-muted);border-radius:5px;color:var(--text-muted);font-size:11px;font-weight:600;padding:3px 8px;cursor:pointer;touch-action:manipulation">↺ Reset</button>
   </div>
 
   <div class="player-list" id="player-list"></div>
@@ -1525,6 +1526,17 @@ function showKeeperRotation() {
 function backFromKeeper() {
   switchScreen(state.prevScreen || 'game');
   updateKeeperTimerDisplay();
+}
+
+function resetKeeperTimer() {
+  if (!confirm('Reset keeper timer to full interval?')) return;
+  const kr = state.keeperRotation;
+  kr.timerSecs = kr.changeIntervalMins * 60;
+  kr.warned = false;
+  kr.warned120 = false;
+  kr.warned60 = false;
+  updateKeeperTimerDisplay();
+  showNotification('🧤 Keeper timer reset');
 }
 
 function toggleKeeperRotation(enabled) {
