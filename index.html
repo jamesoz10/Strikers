@@ -996,11 +996,19 @@
 
   <!-- ===== CAMERA PANEL ===== -->
   <div id="camera-panel" class="camera-panel" style="display:none">
-    <video id="camera-preview" autoplay playsinline muted></video>
+    <div id="camera-viewport" style="overflow:hidden;background:#000;flex-shrink:0;height:220px;position:relative">
+      <video id="camera-preview" autoplay playsinline muted style="width:100%;height:220px;object-fit:cover;display:block;transform-origin:center center;transition:transform 0.2s"></video>
+    </div>
     <div id="save-clip-bar" style="display:none;background:#1a1a1a;padding:10px 16px">
       <button onclick="saveClip()" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:8px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;touch-action:manipulation">
         💾 Save Clip to Photos / Files
       </button>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding:6px 14px;background:#111;border-top:1px solid #222">
+      <span style="font-size:14px">🔍</span>
+      <input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1"
+        oninput="setZoom(this.value)" style="flex:1;accent-color:var(--accent);height:4px">
+      <span id="zoom-label" style="color:#fff;font-size:12px;font-weight:700;min-width:30px;text-align:right">1×</span>
     </div>
     <div class="camera-controls">
       <div class="rec-indicator" id="rec-indicator">
@@ -1008,6 +1016,7 @@
         <span class="rec-time" id="rec-time">00:00</span>
       </div>
       <span style="flex:1"></span>
+      <button class="cam-btn" onclick="rotatePreview()" title="Rotate" style="font-size:20px">⟳</button>
       <button class="cam-btn" onclick="flipCamera()" title="Flip camera" style="font-size:22px">🔄</button>
       <button class="cam-btn" id="rec-btn" onclick="toggleRecording()" title="Record" style="color:#ef4444">⏺</button>
       <button class="cam-btn" onclick="closeCamera()" title="Close" style="font-size:20px;color:#888">✕</button>
@@ -3330,6 +3339,32 @@ let lastClipBlob = null;
 let recTimerInterval = null;
 let recSeconds = 0;
 let cameraFacing = 'environment';
+let zoomLevel = 1;
+let videoRotation = 0;
+
+function applyVideoTransform() {
+  const preview = document.getElementById('camera-preview');
+  if (!preview) return;
+  preview.style.transform = `rotate(${videoRotation}deg) scale(${zoomLevel})`;
+}
+
+function setZoom(val) {
+  zoomLevel = parseFloat(val);
+  const label = document.getElementById('zoom-label');
+  if (label) label.textContent = `${zoomLevel.toFixed(1)}×`;
+  applyVideoTransform();
+  if (cameraStream) {
+    const track = cameraStream.getVideoTracks()[0];
+    if (track) {
+      try { track.applyConstraints({ advanced: [{ zoom: zoomLevel }] }).catch(() => {}); } catch(e) {}
+    }
+  }
+}
+
+function rotatePreview() {
+  videoRotation = (videoRotation + 90) % 360;
+  applyVideoTransform();
+}
 
 async function toggleCamera() {
   if (cameraStream) {
@@ -3369,6 +3404,12 @@ function closeCamera() {
   document.getElementById('rec-indicator').style.display = 'none';
   document.getElementById('save-clip-bar').style.display = 'none';
   stopRecTimer();
+  zoomLevel = 1; videoRotation = 0;
+  const zs = document.getElementById('zoom-slider');
+  const zl = document.getElementById('zoom-label');
+  if (zs) zs.value = 1;
+  if (zl) zl.textContent = '1.0×';
+  applyVideoTransform();
 }
 
 async function flipCamera() {
@@ -3382,6 +3423,7 @@ async function flipCamera() {
       audio: true,
     });
     document.getElementById('camera-preview').srcObject = cameraStream;
+    applyVideoTransform();
   } catch(e) {
     showNotification('Could not switch camera');
   }
