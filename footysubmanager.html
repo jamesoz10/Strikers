@@ -869,6 +869,18 @@
   .game-score.win { color: var(--green); }
   .game-score.loss { color: var(--red); }
   .game-score.draw { color: var(--yellow); }
+  .game-action-btn {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    flex-shrink: 0;
+  }
+  .game-action-btn:active { background: var(--surface2); }
 </style>
 </head>
 <body>
@@ -1198,6 +1210,33 @@
       </div>
     </div>
     <button class="modal-ok" onclick="closeScoreModal()">OK</button>
+  </div>
+</div>
+
+<!-- ========== EDIT GAME MODAL ========== -->
+<div id="edit-game-modal" class="modal-overlay">
+  <div class="modal">
+    <h2>Edit Game</h2>
+    <div style="text-align:center;color:var(--text-muted);font-size:13px;margin-bottom:16px" id="edit-game-info"></div>
+    <div class="modal-section">
+      <div class="modal-label" id="edit-team-label">Team</div>
+      <div class="counter-row">
+        <button class="counter-btn" onclick="adjustEditScore('team', -1)">−</button>
+        <div class="counter-val" id="edit-team-score">0</div>
+        <button class="counter-btn" onclick="adjustEditScore('team', 1)">+</button>
+      </div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-label" id="edit-opp-label">Opponent</div>
+      <div class="counter-row">
+        <button class="counter-btn" onclick="adjustEditScore('opp', -1)">−</button>
+        <div class="counter-val" id="edit-opp-score">0</div>
+        <button class="counter-btn" onclick="adjustEditScore('opp', 1)">+</button>
+      </div>
+    </div>
+    <button class="modal-ok" onclick="saveEditedGame()">Save Score</button>
+    <button class="confirm-cancel-btn" style="width:100%;margin-top:8px;color:var(--red)" onclick="deleteGameFromModal()">🗑 Delete This Game</button>
+    <button class="confirm-cancel-btn" style="width:100%;margin-top:8px" onclick="closeEditGameModal()">Cancel</button>
   </div>
 </div>
 
@@ -2494,12 +2533,13 @@ function renderSeasonStats() {
     <td>${p.games}</td>
   </tr>`).join('');
 
-  const history = [...seasonData.games].reverse().map(g => {
+  const history = seasonData.games.map((g, i) => ({ g, i })).reverse().map(({ g, i }) => {
     const cls = g.result.team > g.result.opp ? 'win' : g.result.team < g.result.opp ? 'loss' : 'draw';
     return `<div class="game-history-row">
       <span class="game-date">${g.date}</span>
       <span class="game-opp">${g.opponent}</span>
       <span class="game-score ${cls}">${g.result.team}–${g.result.opp}</span>
+      <button class="game-action-btn" onclick="showEditGameModal(${i})" title="Edit">✏️</button>
     </div>`;
   }).join('');
 
@@ -2532,6 +2572,52 @@ function clearSeasonData() {
   saveSeasonData();
   renderSeasonStats();
   showNotification('Season data cleared');
+}
+
+// ===== EDIT / DELETE SAVED GAME =====
+let editingGameIdx = -1;
+let editGameResult = { team: 0, opp: 0 };
+
+function showEditGameModal(idx) {
+  editingGameIdx = idx;
+  const g = seasonData.games[idx];
+  editGameResult = { team: g.result.team, opp: g.result.opp };
+  document.getElementById('edit-game-info').textContent = `${g.date}  vs  ${g.opponent}`;
+  document.getElementById('edit-team-label').textContent = seasonData.teamName || 'Team';
+  document.getElementById('edit-opp-label').textContent = g.opponent || 'Opponent';
+  document.getElementById('edit-team-score').textContent = editGameResult.team;
+  document.getElementById('edit-opp-score').textContent = editGameResult.opp;
+  document.getElementById('edit-game-modal').classList.add('show');
+}
+
+function closeEditGameModal() {
+  document.getElementById('edit-game-modal').classList.remove('show');
+  editingGameIdx = -1;
+}
+
+function adjustEditScore(which, delta) {
+  editGameResult[which] = Math.max(0, editGameResult[which] + delta);
+  document.getElementById(which === 'team' ? 'edit-team-score' : 'edit-opp-score').textContent = editGameResult[which];
+}
+
+function saveEditedGame() {
+  if (editingGameIdx < 0) return;
+  seasonData.games[editingGameIdx].result = { ...editGameResult };
+  saveSeasonData();
+  closeEditGameModal();
+  renderSeasonStats();
+  showNotification('✓ Score updated');
+}
+
+function deleteGameFromModal() {
+  if (editingGameIdx < 0) return;
+  const g = seasonData.games[editingGameIdx];
+  if (!confirm(`Delete game vs ${g.opponent} (${g.result.team}–${g.result.opp}) on ${g.date}?`)) return;
+  seasonData.games.splice(editingGameIdx, 1);
+  saveSeasonData();
+  closeEditGameModal();
+  renderSeasonStats();
+  showNotification('Game deleted');
 }
 
 // ===== GOAL LOGGING =====
