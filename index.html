@@ -2142,6 +2142,13 @@ function showKeeperNotification(msg) {
 function toggleGameTimer() {
   const wasRunning = state.gameTimerRunning;
   if (!wasRunning) {
+    // At halftime — re-show the modal instead of auto-starting
+    if (state.currentHalf === 1 && state.gameTimerSecs <= 0) {
+      document.getElementById('halftime-score-display').textContent =
+        `${state.score.team} – ${state.score.opp}`;
+      document.getElementById('halftime-modal').classList.add('show');
+      return;
+    }
     state.gameTimerRunning = true;
     state.subTimerRunning = true;
     if (state.gameTimerSecs <= 0) {
