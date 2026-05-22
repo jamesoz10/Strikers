@@ -949,6 +949,19 @@
 
   <div class="settings-body">
     <div class="setting-row">
+      <div class="setting-label">Team Names</div>
+      <input type="text" class="team-name-input" id="team-name-input" placeholder="Your team name..." maxlength="30"
+        oninput="state.teamName = this.value.trim(); updateTeamNameDisplays(); saveSeasonTeamName()">
+      <input type="text" class="team-name-input" id="opp-name-input" placeholder="Today's opponent..." maxlength="30"
+        style="margin-top:8px" oninput="state.oppName = this.value.trim()">
+    </div>
+
+    <button class="settings-action-btn" onclick="showSeasonStats()" style="color:#a78bfa;border-color:#a78bfa">📊 Season Stats</button>
+    <button class="settings-action-btn" onclick="saveGameToSeason()" style="color:var(--green);border-color:var(--green)">💾 Save Game to Season</button>
+    <button class="settings-action-btn" onclick="showKeeperRotation()" style="color:var(--accent);border-color:var(--accent)">🧤 Keeper Rotation</button>
+    <button class="settings-action-btn" onclick="generateRandomLineup()">🎲 Generate Random Lineup</button>
+
+    <div class="setting-row">
       <div class="setting-label">
         Field players: <span class="setting-value" id="field-players-val">5</span> + 1 goalkeeper
       </div>
@@ -1020,18 +1033,6 @@
       </div>
     </div>
 
-    <div class="setting-row">
-      <div class="setting-label">Team Names</div>
-      <input type="text" class="team-name-input" id="team-name-input" placeholder="Your team name..." maxlength="30"
-        oninput="state.teamName = this.value.trim(); updateTeamNameDisplays(); saveSeasonTeamName()">
-      <input type="text" class="team-name-input" id="opp-name-input" placeholder="Today's opponent..." maxlength="30"
-        style="margin-top:8px" oninput="state.oppName = this.value.trim()">
-    </div>
-
-    <button class="settings-action-btn" onclick="generateRandomLineup()">🎲 Generate Random Lineup</button>
-    <button class="settings-action-btn" onclick="showKeeperRotation()" style="color:var(--accent);border-color:var(--accent)">🧤 Keeper Rotation</button>
-    <button class="settings-action-btn" onclick="showSeasonStats()" style="color:#a78bfa;border-color:#a78bfa">📊 Season Stats</button>
-    <button class="settings-action-btn" onclick="saveGameToSeason()" style="color:var(--green);border-color:var(--green)">💾 Save Game to Season</button>
     <button class="settings-action-btn" onclick="resetGame()" style="color:var(--red);border-color:var(--red);touch-action:manipulation;-webkit-tap-highlight-color:rgba(239,68,68,0.2)">↺ Reset & New Game</button>
     <div style="height:20px"></div>
   </div>
