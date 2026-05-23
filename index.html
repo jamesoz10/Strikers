@@ -996,6 +996,21 @@
     animation: recblink 1s step-start infinite;
   }
   @keyframes recblink { 50% { opacity: 0; } }
+  @keyframes screen-pulse {
+    0%   { opacity: 0.85; }
+    100% { opacity: 0; }
+  }
+  #screen-flash {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9998;
+    opacity: 0;
+    border-radius: 0;
+  }
+  #screen-flash.flashing {
+    animation: screen-pulse 0.55s ease-out forwards;
+  }
   .rec-time {
     color: #fff;
     font-size: 13px;
@@ -1649,6 +1664,7 @@
 </div>
 
 <!-- ========== SUB NOTIFICATION ========== -->
+<div id="screen-flash"></div>
 <div id="sub-notification" class="sub-notification"></div>
 
 <script>
@@ -2500,12 +2516,24 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+// ---- Visual flash ring (iOS haptic substitute) ----
+function screenFlash(color) {
+  const el = document.getElementById('screen-flash');
+  if (!el) return;
+  el.style.border = `7px solid ${color}`;
+  el.style.boxShadow = `inset 0 0 40px ${color}55`;
+  el.classList.remove('flashing');
+  void el.offsetWidth; // force reflow to restart animation
+  el.classList.add('flashing');
+}
+
 // ---- Sub warning: 3 quick beeps + medium taps ----
 function playWarningBeeps() {
   playBeep(880, 0.15, 0.35, 'sine');
   setTimeout(() => playBeep(880, 0.15, 0.35, 'sine'), 200);
   setTimeout(() => playBeep(1100, 0.25, 0.4, 'sine'), 400);
   haptic([100, 80, 100, 80, 200], 'medium');
+  screenFlash('#f59e0b');
 }
 
 // ---- Sub alert: two blasts + heavy double buzz ----
@@ -2513,6 +2541,8 @@ function playSubAlertSound() {
   playBeep(440, 0.4, 0.5, 'square');
   setTimeout(() => playBeep(660, 0.5, 0.5, 'square'), 500);
   haptic([300, 120, 300], 'heavy');
+  screenFlash('#ef4444');
+  setTimeout(() => screenFlash('#ef4444'), 600);
 }
 
 // ---- Keeper warning: distinct triple tap ----
@@ -2521,6 +2551,7 @@ function playKeeperWarningBeeps() {
   setTimeout(() => playBeep(660, 0.2, 0.4, 'sine'), 280);
   setTimeout(() => playBeep(990, 0.3, 0.45, 'sine'), 560);
   haptic([150, 60, 150, 60, 300], 'medium');
+  screenFlash('#38bdf8');
 }
 
 // ---- Keeper change: ascending chime + strong pattern ----
@@ -2529,6 +2560,8 @@ function playKeeperChangeSound() {
   setTimeout(() => playBeep(659, 0.3, 0.5, 'triangle'), 300);
   setTimeout(() => playBeep(784, 0.5, 0.5, 'triangle'), 600);
   haptic([200, 80, 200, 80, 400], 'heavy');
+  screenFlash('#10b981');
+  setTimeout(() => screenFlash('#10b981'), 700);
 }
 
 // ---- Audio & haptic test sequence ----
@@ -3956,7 +3989,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v5';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
+  var swCode = "const CACHE = 'strikers-sub-v6';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
