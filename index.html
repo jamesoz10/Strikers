@@ -3175,6 +3175,7 @@ function confirmAddGame() {
 
 // ===== SCREEN MANAGEMENT =====
 function switchScreen(name) {
+  if (name !== 'game' && cameraStream) closeCamera();
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
 }
@@ -3580,12 +3581,6 @@ async function saveClip() {
   }
 }
 
-// Stop camera if user leaves the game screen
-const _origSwitchScreen = switchScreen;
-function switchScreen(name) {
-  if (name !== 'game' && cameraStream) closeCamera();
-  _origSwitchScreen(name);
-}
 
 // ===== START =====
 init();
