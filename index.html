@@ -3365,28 +3365,21 @@ async function togglePortrait() {
   const btn = document.getElementById('portrait-btn');
 
   if (isPortrait) {
-    viewport.style.height = '340px';
-    preview.style.height = '340px';
-    preview.style.objectFit = 'contain';
+    // Show a portrait-shaped preview box (9:16), centered, without restarting stream
+    viewport.style.height = '290px';
+    viewport.style.display = 'flex';
+    viewport.style.justifyContent = 'center';
+    preview.style.width = '163px'; // 290 * (9/16)
+    preview.style.height = '290px';
+    preview.style.objectFit = 'cover';
     if (btn) btn.style.color = 'var(--accent)';
   } else {
     viewport.style.height = '220px';
+    viewport.style.display = 'block';
+    preview.style.width = '100%';
     preview.style.height = '220px';
     preview.style.objectFit = 'cover';
     if (btn) btn.style.color = '';
-  }
-
-  if (cameraStream) {
-    cameraStream.getTracks().forEach(t => t.stop());
-    try {
-      const constraints = isPortrait
-        ? { facingMode: { ideal: cameraFacing }, width: { ideal: 720 }, height: { ideal: 1280 } }
-        : { facingMode: { ideal: cameraFacing }, width: { ideal: 1280 }, height: { ideal: 720 } };
-      cameraStream = await navigator.mediaDevices.getUserMedia({ video: constraints, audio: true });
-      preview.srcObject = cameraStream;
-    } catch(e) {
-      showNotification('Could not switch orientation');
-    }
   }
 }
 
@@ -3438,8 +3431,8 @@ function closeCamera() {
   if (isPortrait) {
     isPortrait = false;
     const vp = document.getElementById('camera-viewport');
-    if (vp) { vp.style.height = '220px'; }
-    if (prev) { prev.style.height = '220px'; prev.style.objectFit = 'cover'; }
+    if (vp) { vp.style.height = '220px'; vp.style.display = 'block'; }
+    if (prev) { prev.style.width = '100%'; prev.style.height = '220px'; prev.style.objectFit = 'cover'; }
     const btn = document.getElementById('portrait-btn');
     if (btn) btn.style.color = '';
   }
