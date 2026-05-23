@@ -3038,7 +3038,15 @@ function renderSeasonStats() {
     <td>${p.games}</td>
   </tr>`).join('');
 
-  const history = seasonData.games.map((g, i) => ({ g, i })).reverse().map(({ g, i }) => {
+  const parseGameDate = s => {
+    const parts = (s || '').split('/');
+    if (parts.length !== 3) return 0;
+    const [d, m, y] = parts;
+    return new Date(`20${y}`, m - 1, d).getTime();
+  };
+  const history = seasonData.games
+    .map((g, i) => ({ g, i }))
+    .sort((a, b) => parseGameDate(b.g.date) - parseGameDate(a.g.date)).map(({ g, i }) => {
     const cls = g.result.team > g.result.opp ? 'win' : g.result.team < g.result.opp ? 'loss' : 'draw';
     return `<div class="game-history-row" onclick="showEditGameModal(${i})">
       <span class="game-date">${g.date}</span>
