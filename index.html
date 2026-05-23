@@ -100,7 +100,9 @@
     #game-main { flex-direction: row; }
     #game-left  { border-right: 2px solid var(--border); }
     #game-right { width: 264px; overflow: hidden; flex-shrink: 0; }
-    .player-row { height: 52px; }
+    .player-row { height: 46px; }
+    .player-status-label { display: none; }
+    .player-name { font-size: 18px; }
     /* Camera fills available height in right column */
     #camera-panel   { flex: 1; min-height: 0; overflow: hidden; }
     #camera-viewport { height: auto !important; flex: 1; min-height: 0; display: flex !important; align-items: center; justify-content: center; }
@@ -122,6 +124,7 @@
     user-select: none;
     transition: background 0.15s, opacity 0.15s;
     gap: 10px;
+    overflow: hidden;
   }
   .player-row.drag-over {
     background: var(--surface);
@@ -150,12 +153,16 @@
   .dot-next-in { background: var(--accent); }
   .dot-next-off { background: var(--red); }
 
+  .player-info { flex: 1; min-width: 0; overflow: hidden; }
+
   .player-name {
-    flex: 1;
     font-family: 'Barlow Condensed', sans-serif;
     font-size: 20px;
     font-weight: 700;
     letter-spacing: 0.3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .player-name.on-field { color: var(--text); }
   .player-name.off-field { color: var(--text-muted); font-weight: 600; }
@@ -166,6 +173,9 @@
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .player-arrow {
@@ -2279,7 +2289,7 @@ function renderGame() {
 
     // Name + label — show position number if multiple subs
     const nameWrap = document.createElement('div');
-    nameWrap.style.flex = '1';
+    nameWrap.className = 'player-info';
     const nameEl = document.createElement('div');
     nameEl.className = 'player-name ' + (onField ? 'on-field' : 'off-field');
     nameEl.textContent = p.name;
@@ -4049,7 +4059,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v7';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
+  var swCode = "const CACHE = 'strikers-sub-v8';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
