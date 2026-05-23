@@ -3373,11 +3373,10 @@ async function togglePortrait() {
   const btn = document.getElementById('portrait-btn');
 
   if (isPortrait) {
-    // Show a portrait-shaped preview box (9:16), centered, without restarting stream
     viewport.style.height = '290px';
     viewport.style.display = 'flex';
     viewport.style.justifyContent = 'center';
-    preview.style.width = '163px'; // 290 * (9/16)
+    preview.style.width = '163px';
     preview.style.height = '290px';
     preview.style.objectFit = 'cover';
     if (btn) btn.style.color = 'var(--accent)';
@@ -3389,6 +3388,28 @@ async function togglePortrait() {
     preview.style.objectFit = 'cover';
     if (btn) btn.style.color = '';
   }
+
+  // Restart stream with correct orientation constraints
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: getCameraConstraints(),
+        audio: true,
+      });
+      preview.srcObject = cameraStream;
+    } catch(e) {
+      showNotification('Could not switch orientation');
+    }
+  }
+}
+
+function getCameraConstraints() {
+  // Explicit width > height forces landscape frames; swapped forces portrait.
+  // 4K ideal with 1080p min as fallback.
+  return isPortrait
+    ? { facingMode: { ideal: cameraFacing }, width: { ideal: 2160, min: 720 }, height: { ideal: 3840, min: 1280 } }
+    : { facingMode: { ideal: cameraFacing }, width: { ideal: 3840, min: 1280 }, height: { ideal: 2160, min: 720 } };
 }
 
 async function toggleCamera() {
@@ -3402,7 +3423,7 @@ async function toggleCamera() {
 async function openCamera() {
   try {
     cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: cameraFacing }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      video: getCameraConstraints(),
       audio: true,
     });
     document.getElementById('camera-preview').srcObject = cameraStream;
@@ -3453,7 +3474,7 @@ async function flipCamera() {
   }
   try {
     cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: cameraFacing } },
+      video: getCameraConstraints(),
       audio: true,
     });
     document.getElementById('camera-preview').srcObject = cameraStream;
