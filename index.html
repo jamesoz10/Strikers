@@ -1460,6 +1460,16 @@
   </div>
 </div>
 
+<!-- ========== MATCH STATS SCREEN ========== -->
+<div id="screen-match-stats" class="screen">
+  <div class="settings-header" style="display:flex;align-items:center;justify-content:space-between;padding:0 8px">
+    <button onclick="switchScreen('stats');renderSeasonStats()" style="background:none;border:none;color:var(--text);font-size:22px;cursor:pointer;touch-action:manipulation;padding:8px">←</button>
+    <h1 style="margin:0;font-size:18px">Match Stats</h1>
+    <button onclick="showEditCurrentGame()" style="background:none;border:none;color:var(--accent);font-size:20px;cursor:pointer;touch-action:manipulation;padding:8px">✏️</button>
+  </div>
+  <div class="settings-body" id="match-stats-content" style="overflow-y:auto;padding:16px 16px 24px"></div>
+</div>
+
 <!-- ========== HALF TIME MODAL ========== -->
 <div id="halftime-modal" class="modal-overlay">
   <div class="confirm-sub-box" style="text-align:center">
@@ -1598,7 +1608,8 @@
     <h2>Edit Game</h2>
     <div style="text-align:center;color:var(--text-muted);font-size:13px;margin-bottom:16px" id="edit-game-info"></div>
     <div class="modal-section">
-      <div class="modal-label" id="edit-team-label">Team</div>
+      <div class="modal-label">Team Name</div>
+      <input type="text" id="edit-team-name" maxlength="30" style="width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:15px;margin-bottom:8px">
       <div class="counter-row">
         <button class="counter-btn" onclick="adjustEditScore('team', -1)">−</button>
         <div class="counter-val" id="edit-team-score">0</div>
@@ -1606,14 +1617,15 @@
       </div>
     </div>
     <div class="modal-section">
-      <div class="modal-label" id="edit-opp-label">Opponent</div>
+      <div class="modal-label">Opponent</div>
+      <input type="text" id="edit-opp-name" maxlength="30" style="width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:15px;margin-bottom:8px">
       <div class="counter-row">
         <button class="counter-btn" onclick="adjustEditScore('opp', -1)">−</button>
         <div class="counter-val" id="edit-opp-score">0</div>
         <button class="counter-btn" onclick="adjustEditScore('opp', 1)">+</button>
       </div>
     </div>
-    <button class="modal-ok" onclick="saveEditedGame()">Save Score</button>
+    <button class="modal-ok" onclick="saveEditedGame()">Save</button>
     <button class="confirm-cancel-btn" style="width:100%;margin-top:8px;color:var(--red)" onclick="deleteGameFromModal()">🗑 Delete This Game</button>
     <button class="confirm-cancel-btn" style="width:100%;margin-top:8px" onclick="closeEditGameModal()">Cancel</button>
   </div>
@@ -2971,6 +2983,7 @@ function saveGameToSeason() {
   seasonData.games.push({
     date: new Date().toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: '2-digit' }),
     opponent: state.oppName || 'Opponent',
+    teamName: state.teamName || 'Strikers',
     result: { team: state.score.team, opp: state.score.opp },
     playerStats,
   });
@@ -3048,7 +3061,7 @@ function renderSeasonStats() {
     .map((g, i) => ({ g, i }))
     .sort((a, b) => parseGameDate(b.g.date) - parseGameDate(a.g.date)).map(({ g, i }) => {
     const cls = g.result.team > g.result.opp ? 'win' : g.result.team < g.result.opp ? 'loss' : 'draw';
-    return `<div class="game-history-row" onclick="showEditGameModal(${i})">
+    return `<div class="game-history-row" onclick="showMatchStats(${i})">
       <span class="game-date">${g.date}</span>
       <span class="game-opp">${g.opponent}</span>
       <span class="game-score ${cls}">${g.result.team}–${g.result.opp}</span>
@@ -3087,6 +3100,53 @@ function clearSeasonData() {
   showNotification('Season data cleared');
 }
 
+// ===== MATCH STATS SCREEN =====
+let viewingGameIdx = -1;
+
+function showMatchStats(idx) {
+  viewingGameIdx = idx;
+  const g = seasonData.games[idx];
+  const teamName = g.teamName || seasonData.teamName || 'Team';
+  const oppName = g.opponent || 'Opponent';
+  const resultColor = g.result.team > g.result.opp ? 'var(--green)' : g.result.team < g.result.opp ? 'var(--red)' : 'var(--text-muted)';
+
+  let playerRows = '';
+  if (g.playerStats && Object.keys(g.playerStats).length) {
+    const players = Object.values(g.playerStats).sort((a, b) => (b.fieldSecs || 0) - (a.fieldSecs || 0));
+    playerRows = players.map(p => {
+      const field = formatTime(p.fieldSecs || 0);
+      const keeper = p.keeperSecs > 0 ? formatTime(p.keeperSecs) : '—';
+      return `<tr>
+        <td style="text-align:left;padding:8px 4px">${p.name}</td>
+        <td style="text-align:center">${p.goals || 0}</td>
+        <td style="text-align:center">${field}</td>
+        <td style="text-align:center">${keeper}</td>
+      </tr>`;
+    }).join('');
+  } else {
+    playerRows = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px">No player stats recorded</td></tr>`;
+  }
+
+  document.getElementById('match-stats-content').innerHTML = `
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px">${g.date}</div>
+      <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:10px">${teamName} vs ${oppName}</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:60px;font-weight:800;color:${resultColor};line-height:1.1">${g.result.team}–${g.result.opp}</div>
+    </div>
+    <div class="stats-section-title">Player Stats</div>
+    <table class="stats-table">
+      <thead><tr><th style="text-align:left">Name</th><th>⚽</th><th>Field</th><th>🥅</th></tr></thead>
+      <tbody>${playerRows}</tbody>
+    </table>
+  `;
+  switchScreen('match-stats');
+}
+
+function showEditCurrentGame() {
+  if (viewingGameIdx < 0) return;
+  showEditGameModal(viewingGameIdx);
+}
+
 // ===== EDIT / DELETE SAVED GAME =====
 let editingGameIdx = -1;
 let editGameResult = { team: 0, opp: 0 };
@@ -3095,9 +3155,9 @@ function showEditGameModal(idx) {
   editingGameIdx = idx;
   const g = seasonData.games[idx];
   editGameResult = { team: g.result.team, opp: g.result.opp };
-  document.getElementById('edit-game-info').textContent = `${g.date}  vs  ${g.opponent}`;
-  document.getElementById('edit-team-label').textContent = seasonData.teamName || 'Team';
-  document.getElementById('edit-opp-label').textContent = g.opponent || 'Opponent';
+  document.getElementById('edit-game-info').textContent = g.date;
+  document.getElementById('edit-team-name').value = g.teamName || seasonData.teamName || 'Strikers';
+  document.getElementById('edit-opp-name').value = g.opponent || '';
   document.getElementById('edit-team-score').textContent = editGameResult.team;
   document.getElementById('edit-opp-score').textContent = editGameResult.opp;
   document.getElementById('edit-game-modal').classList.add('show');
@@ -3115,11 +3175,17 @@ function adjustEditScore(which, delta) {
 
 function saveEditedGame() {
   if (editingGameIdx < 0) return;
+  const teamName = document.getElementById('edit-team-name').value.trim() || seasonData.teamName || 'Strikers';
+  const oppName = document.getElementById('edit-opp-name').value.trim() || 'Opponent';
   seasonData.games[editingGameIdx].result = { ...editGameResult };
+  seasonData.games[editingGameIdx].teamName = teamName;
+  seasonData.games[editingGameIdx].opponent = oppName;
   saveSeasonData();
+  const fromMatchStats = viewingGameIdx === editingGameIdx;
   closeEditGameModal();
+  if (fromMatchStats) showMatchStats(viewingGameIdx);
   renderSeasonStats();
-  showNotification('✓ Score updated');
+  showNotification('✓ Game updated');
 }
 
 function deleteGameFromModal() {
@@ -3128,8 +3194,11 @@ function deleteGameFromModal() {
   if (!confirm(`Delete game vs ${g.opponent} (${g.result.team}–${g.result.opp}) on ${g.date}?`)) return;
   seasonData.games.splice(editingGameIdx, 1);
   saveSeasonData();
-  closeEditGameModal();
+  document.getElementById('edit-game-modal').classList.remove('show');
+  editingGameIdx = -1;
+  viewingGameIdx = -1;
   renderSeasonStats();
+  switchScreen('stats');
   showNotification('Game deleted');
 }
 
@@ -3421,6 +3490,7 @@ function confirmAddGame() {
   seasonData.games.push({
     date: displayDate,
     opponent: opp,
+    teamName: seasonData.teamName || state.teamName || 'Strikers',
     result: { team: addGameResult.team, opp: addGameResult.opp },
     playerStats: {},
   });
@@ -3872,7 +3942,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v3';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
+  var swCode = "const CACHE = 'strikers-sub-v4';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
