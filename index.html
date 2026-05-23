@@ -441,6 +441,65 @@
   }
   .settings-action-btn:active { background: var(--surface2); }
 
+  /* ===== HELP SCREEN ===== */
+  .help-section {
+    border-bottom: 1px solid var(--border);
+  }
+  .help-section-header {
+    width: 100%;
+    background: none;
+    border: none;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    touch-action: manipulation;
+    text-align: left;
+  }
+  .help-section-header:active { background: var(--surface2); }
+  .help-chevron {
+    color: var(--text-muted);
+    font-size: 20px;
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+  .help-section-header.open .help-chevron { transform: rotate(90deg); }
+  .help-section-body {
+    display: none;
+    padding: 0 16px 16px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-muted);
+  }
+  .help-section-body p { margin: 0 0 10px; }
+  .help-section-body p:last-child { margin-bottom: 0; }
+  .help-section-body strong { color: var(--text); }
+  .help-section-body.open { display: block; }
+  .help-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 10px;
+    font-size: 13px;
+  }
+  .help-table td {
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .help-table td:first-child {
+    color: var(--text);
+    font-weight: 600;
+    white-space: nowrap;
+    width: 1%;
+    padding-right: 14px;
+  }
+
   .settings-footer {
     padding: 16px;
     border-top: 2px solid var(--border);
@@ -1062,6 +1121,7 @@
     <button class="settings-action-btn" onclick="saveGameToSeason()" style="color:var(--green);border-color:var(--green)">💾 Save Game to Season</button>
     <button class="settings-action-btn" onclick="showKeeperRotation()" style="color:var(--accent);border-color:var(--accent)">🧤 Keeper Rotation</button>
     <button class="settings-action-btn" onclick="generateRandomLineup()">🎲 Generate Random Lineup</button>
+    <button class="settings-action-btn" onclick="showHelp()" style="color:#38bdf8;border-color:#38bdf8">❓ Help</button>
 
     <div class="setting-row">
       <div class="setting-label">
@@ -1231,6 +1291,171 @@
   <div class="settings-footer" style="grid-template-columns:1fr 1fr 1fr">
     <button class="footer-btn footer-btn-dark" onclick="clearSeasonData()" style="color:var(--red)">🗑 Clear</button>
     <button class="footer-btn footer-btn-dark" onclick="showAddGameModal()" style="color:var(--green)">➕ Add Game</button>
+    <button class="footer-btn footer-btn-green" onclick="switchScreen('settings')">Done</button>
+  </div>
+</div>
+
+<!-- ========== HELP SCREEN ========== -->
+<div id="screen-help" class="screen">
+  <div class="settings-header">
+    <button onclick="switchScreen('settings')" style="background:none;border:none;color:var(--text);font-size:22px;cursor:pointer;touch-action:manipulation">←</button>
+    <h1>❓ Help</h1>
+  </div>
+  <div class="settings-body" id="help-body" style="padding:0;overflow-y:auto;gap:0">
+
+    <!-- SECTION TEMPLATE: tap header to expand/collapse -->
+    <div class="help-section">
+      <button class="help-section-header" onclick="toggleHelp(this)">
+        <span>🏟️ Game Screen</span><span class="help-chevron">›</span>
+      </button>
+      <div class="help-section-body">
+        <p><strong>Header buttons</strong></p>
+        <table class="help-table">
+          <tr><td>⚙️</td><td>Open Settings</td></tr>
+          <tr><td>0 – 0</td><td>Tap to edit score manually</td></tr>
+          <tr><td>🩺</td><td>Injury pause — freezes all timers</td></tr>
+          <tr><td>📹</td><td>Open / close camera panel</td></tr>
+          <tr><td>☰</td><td>Toggle drag-to-reorder mode</td></tr>
+        </table>
+        <p><strong>Player dot colours</strong></p>
+        <table class="help-table">
+          <tr><td>🟡 Yellow</td><td>Current goalkeeper</td></tr>
+          <tr><td>🟢 Green</td><td>On field</td></tr>
+          <tr><td>🔴 Red</td><td>Coming off next sub</td></tr>
+          <tr><td>🔵 Blue</td><td>Coming on next sub</td></tr>
+        </table>
+        <p><strong>Player row</strong> — shows name, status, field timer, and ⚽ goal button (on-field players only). Tap ⚽ to log a goal (also adds 1 to team score).</p>
+        <p><strong>Tap the keeper row</strong> to immediately swap to any other player.</p>
+        <p><strong>Drag mode (☰)</strong> — shows ≡ handles on each row. Touch and drag to reorder players.</p>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <button class="help-section-header" onclick="toggleHelp(this)">
+        <span>⏱️ Timers</span><span class="help-chevron">›</span>
+      </button>
+      <div class="help-section-body">
+        <p><strong>Game timer (bottom right)</strong> — counts down each half. Tap to start/pause. Starting game timer also starts sub timer.</p>
+        <p><strong>Sub timer (bottom left)</strong> — counts down to next substitution. Turns red at 30 seconds. Can be paused independently.</p>
+        <p><strong>Swap button (centre)</strong> — pulses when a sub is due. Tap to confirm the swap.</p>
+        <p><strong>Half time</strong> — when the first half reaches zero, a modal appears. Tap <em>Start 2nd Half</em> to continue, or <em>Stay</em> and tap the game timer play button later.</p>
+        <p><strong>Full time</strong> — all timers stop, game auto-saves to Season Stats.</p>
+        <p><strong>Injury pause (🩺)</strong> — freezes every timer instantly. Tap <em>Resume</em> to continue.</p>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <button class="help-section-header" onclick="toggleHelp(this)">
+        <span>🧤 Keeper Rotation</span><span class="help-chevron">›</span>
+      </button>
+      <div class="help-section-body">
+        <p>Configure in <strong>Settings → 🧤 Keeper Rotation</strong>.</p>
+        <p>Enable the toggle, set the change interval, and drag players into the queue in the order you want them to keep.</p>
+        <p>A countdown bar appears on the game screen. Warnings fire at <strong>2 min, 1 min, and 30 sec</strong> (beep + vibration). A confirmation modal appears at zero.</p>
+        <p>Tap <strong>↺ Reset</strong> on the keeper bar to restart the timer at any time.</p>
+        <p>Tap the <strong>keeper row</strong> on the game screen to manually swap keepers outside of rotation.</p>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <button class="help-section-header" onclick="toggleHelp(this)">
+        <span>📹 Camera</span><span class="help-chevron">›</span>
+      </button>
+      <div class="help-section-body">
+        <table class="help-table">
+          <tr><td>🔍 slider</td><td>Zoom 1× – 5×</td></tr>
+          <tr><td>📱 portrait</td><td>Toggle portrait mode (9:16)</td></tr>
+          <tr><td>🔄</td><td>Flip front / rear camera</td></tr>
+          <tr><td>⏺</td><td>Start recording</td></tr>
+          <tr><td>⏹</td><td>Stop — share sheet opens to save</td></tr>
+          <tr><td>✕</td><td>Close camera</td></tr>
+        </table>
+        <p>Default mode records <strong>landscape 4K</strong>. Tap 📱 to switch to portrait 4K.</p>
+        <p>Tapping ⏹ immediately opens the iOS share sheet. Choose <em>Save to Photos</em> or <em>Save to Files</em>. If the share sheet is cancelled, a <strong>💾 Save Clip</strong> button appears as a fallback.</p>
+        <p>iOS applies optical stabilisation automatically — no setting required.</p>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <button class="help-section-header" onclick="toggleHelp(this)">
+        <span>⚙️ Settings</span><span class="help-chevron">›</span>
+      </button>
+      <div class="help-section-body">
+        <table class="help-table">
+          <tr><td>Field players</td><td>Number of outfield players (2–10, default 5). Goalkeeper is additional.</td></tr>
+          <tr><td>Disable goalkeeper</td><td>Removes keeper slot entirely — all players treated as field players.</td></tr>
+          <tr><td>Players per sub</td><td>How many players swap at once (1–4, default 2).</td></tr>
+          <tr><td>Manual sub interval</td><td>When ON, the sub timer is disabled — you decide when to sub by tapping the swap button.</td></tr>
+          <tr><td>Sub interval</td><td>Minutes between automatic substitutions (1–15, default 4).</td></tr>
+          <tr><td>Game time</td><td>Minutes per half (10–90, default 20).</td></tr>
+        </table>
+        <p><strong>↺ Reset &amp; New Game</strong> — clears score, all timers, and player times. Requires confirmation.</p>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <button class="help-section-header" onclick="toggleHelp(this)">
+        <span>👥 Players</span><span class="help-chevron">›</span>
+      </button>
+      <div class="help-section-body">
+        <p>Access from <strong>Settings → 👥 Players</strong>.</p>
+        <table class="help-table">
+          <tr><td>✓ circle</td><td>Toggle player in / out of the squad</td></tr>
+          <tr><td>✏️</td><td>Rename player</td></tr>
+          <tr><td>🗑</td><td>Delete player (confirmation required)</td></tr>
+          <tr><td>➕ Add Player</td><td>Type name and tap Add</td></tr>
+        </table>
+        <p>Players toggled off are excluded from the game but kept in the list for future matches.</p>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <button class="help-section-header" onclick="toggleHelp(this)">
+        <span>📊 Season Stats</span><span class="help-chevron">›</span>
+      </button>
+      <div class="help-section-body">
+        <p>Games are saved automatically at full time or manually via <em>💾 Save Game to Season</em> in Settings.</p>
+        <p><strong>Player stats columns</strong></p>
+        <table class="help-table">
+          <tr><td>⚽</td><td>Total goals</td></tr>
+          <tr><td>Field</td><td>Total field time</td></tr>
+          <tr><td>🥅</td><td>Total keeper time</td></tr>
+          <tr><td>GP</td><td>Games played</td></tr>
+        </table>
+        <p><strong>Game history</strong> — tap any row to edit the score or delete the game. Scores show green (win), grey (draw), red (loss).</p>
+        <p>Tap <strong>➕ Add Game</strong> to enter a past match manually.</p>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <button class="help-section-header" onclick="toggleHelp(this)">
+        <span>💾 Data &amp; Persistence</span><span class="help-chevron">›</span>
+      </button>
+      <div class="help-section-body">
+        <p>All data is stored locally on this device — nothing is sent to a server.</p>
+        <p>Data survives app updates. Pushing a new version never clears your roster, settings, or season history.</p>
+        <p><strong>To clear season data</strong> — use 🗑 Clear in Season Stats.</p>
+        <p><strong>To clear everything</strong> — Safari Settings → [this site] → Clear Data.</p>
+        <p>The app works <strong>offline</strong> after the first load.</p>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <button class="help-section-header" onclick="toggleHelp(this)">
+        <span>💡 Tips</span><span class="help-chevron">›</span>
+      </button>
+      <div class="help-section-body">
+        <p><strong>Add to Home Screen</strong> — open in Safari → Share → Add to Home Screen for full-screen app mode.</p>
+        <p><strong>Audio on iOS</strong> — tap anywhere on the screen before the game starts to unlock alert sounds.</p>
+        <p><strong>App update + cache</strong> — if you don't see the latest changes, reload in Safari once to clear the cache.</p>
+        <p><strong>Multiple subs</strong> — set "Players per sub" to 2+ and the swap button will rotate pairs together automatically.</p>
+        <p><strong>Manual sub mode</strong> — great for coaching decisions: the timer stops counting and you decide when each substitution happens.</p>
+      </div>
+    </div>
+
+    <div style="height:20px"></div>
+  </div>
+  <div class="settings-footer">
     <button class="footer-btn footer-btn-green" onclick="switchScreen('settings')">Done</button>
   </div>
 </div>
@@ -2751,6 +2976,23 @@ function saveGameToSeason() {
   });
   saveSeasonData();
   showNotification('📊 Game saved to season!');
+}
+
+function showHelp() {
+  switchScreen('help');
+}
+
+function toggleHelp(btn) {
+  const body = btn.nextElementSibling;
+  const isOpen = body.classList.contains('open');
+  // Close all open sections
+  document.querySelectorAll('.help-section-body.open').forEach(b => b.classList.remove('open'));
+  document.querySelectorAll('.help-section-header.open').forEach(b => b.classList.remove('open'));
+  // Open this one if it was closed
+  if (!isOpen) {
+    body.classList.add('open');
+    btn.classList.add('open');
+  }
 }
 
 function showSeasonStats() {
