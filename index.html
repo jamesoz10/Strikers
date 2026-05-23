@@ -89,6 +89,29 @@
     -webkit-overflow-scrolling: touch;
   }
 
+  /* ===== GAME LAYOUT CONTAINERS ===== */
+  #game-main { display: flex; flex-direction: column; flex: 1; overflow: hidden; min-height: 0; }
+  #game-left  { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+  #game-right { display: flex; flex-direction: column; flex-shrink: 0; }
+
+  /* ===== LANDSCAPE LAYOUT ===== */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .header-btn { padding: 10px 8px; }
+    #game-main { flex-direction: row; }
+    #game-left  { border-right: 2px solid var(--border); }
+    #game-right { width: 264px; overflow: hidden; flex-shrink: 0; }
+    .player-row { height: 52px; }
+    /* Camera fills available height in right column */
+    #camera-panel   { flex: 1; min-height: 0; overflow: hidden; }
+    #camera-viewport { height: auto !important; flex: 1; min-height: 0; display: flex !important; align-items: center; justify-content: center; }
+    #camera-preview  { width: auto !important; height: 100% !important; aspect-ratio: 9/16; object-fit: cover; }
+    /* Compact bottom-bar in right column */
+    .bottom-bar   { border-top: 1px solid var(--border); }
+    .timer-btn    { padding: 10px 4px; }
+    .timer-value  { font-size: 16px; }
+    .keeper-timer-bar { padding: 6px 10px; border-bottom: 1px solid var(--border); }
+  }
+
   .player-row {
     display: flex;
     align-items: center;
@@ -1061,58 +1084,65 @@
     🧤 Keeper change!
   </div>
 
-  <div id="keeper-timer-bar" class="keeper-timer-bar" style="display:none" onclick="showKeeperRotation()">
-    <span class="keeper-timer-label">🧤 Keeper change in</span>
-    <span class="keeper-timer-value" id="keeper-timer-display">10:00</span>
-    <span style="font-size:12px;color:var(--text-muted);margin-left:6px;flex:1">Edit ›</span>
-    <button onclick="event.stopPropagation();resetKeeperTimer()" style="background:none;border:1px solid var(--text-muted);border-radius:5px;color:var(--text-muted);font-size:11px;font-weight:600;padding:3px 8px;cursor:pointer;touch-action:manipulation">↺ Reset</button>
-  </div>
-
-  <div class="player-list" id="player-list"></div>
-
-  <!-- ===== CAMERA PANEL ===== -->
-  <div id="camera-panel" class="camera-panel" style="display:none">
-    <div id="camera-viewport" style="overflow:hidden;background:#000;flex-shrink:0;height:220px;position:relative">
-      <video id="camera-preview" autoplay playsinline muted style="width:100%;height:220px;object-fit:cover;display:block;transform-origin:center center;transition:transform 0.2s"></video>
+  <div id="game-main">
+    <div id="game-left">
+      <div class="player-list" id="player-list"></div>
     </div>
-    <div id="save-clip-bar" style="display:none;background:#1a1a1a;padding:10px 16px">
-      <button onclick="saveClip()" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:8px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;touch-action:manipulation">
-        💾 Save Clip to Photos / Files
-      </button>
-    </div>
-    <div class="camera-controls">
-      <div class="rec-indicator" id="rec-indicator">
-        <div class="rec-dot"></div>
-        <span class="rec-time" id="rec-time">00:00</span>
+    <div id="game-right">
+      <div id="keeper-timer-bar" class="keeper-timer-bar" style="display:none" onclick="showKeeperRotation()">
+        <span class="keeper-timer-label">🧤 Keeper change in</span>
+        <span class="keeper-timer-value" id="keeper-timer-display">10:00</span>
+        <span style="font-size:12px;color:var(--text-muted);margin-left:6px;flex:1">Edit ›</span>
+        <button onclick="event.stopPropagation();resetKeeperTimer()" style="background:none;border:1px solid var(--text-muted);border-radius:5px;color:var(--text-muted);font-size:11px;font-weight:600;padding:3px 8px;cursor:pointer;touch-action:manipulation">↺ Reset</button>
       </div>
-      <span style="font-size:12px;color:#888;margin-left:4px">🔍</span>
-      <input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1"
-        oninput="setZoom(this.value)" style="flex:1;accent-color:var(--accent);height:4px;margin:0 4px">
-      <span id="zoom-label" style="color:#aaa;font-size:11px;font-weight:700;min-width:26px;text-align:right">1×</span>
-      <button class="cam-btn" id="portrait-btn" onclick="togglePortrait()" title="Portrait mode"
-        style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:2px 5px;line-height:1">
-        <span style="font-size:15px">📱</span>
-        <span style="font-size:9px;color:#aaa">portrait</span>
-      </button>
-      <button class="cam-btn" onclick="flipCamera()" title="Flip camera" style="font-size:22px">🔄</button>
-      <button class="cam-btn" id="rec-btn" onclick="toggleRecording()" title="Record" style="color:#ef4444">⏺</button>
-      <button class="cam-btn" onclick="closeCamera()" title="Close" style="font-size:20px;color:#888">✕</button>
-    </div>
-  </div>
 
-  <div class="bottom-bar">
-    <button class="timer-btn" id="sub-timer-btn" onclick="toggleSubTimer()">
-      <span class="timer-value" id="sub-timer-display">04:00</span>
-      <span>▶</span>
-    </button>
-    <button class="timer-btn swap-btn-pulse" id="swap-btn" onclick="doSwap()" title="Swap next players">
-      <span class="swap-icon">⇄</span>
-    </button>
-    <button class="timer-btn" id="game-timer-btn" onclick="toggleGameTimer()">
-      <span style="font-size:11px;color:#ffffff;font-weight:600;letter-spacing:1px" id="half-indicator">1st Half</span>
-      <span class="timer-value" id="game-timer-display">20:00</span>
-      <span>▶</span>
-    </button>
+      <!-- ===== CAMERA PANEL ===== -->
+      <div id="camera-panel" class="camera-panel" style="display:none">
+        <div id="camera-viewport" style="overflow:hidden;background:#000;flex-shrink:0;height:220px;position:relative">
+          <video id="camera-preview" autoplay playsinline muted style="width:100%;height:220px;object-fit:cover;display:block;transform-origin:center center;transition:transform 0.2s"></video>
+        </div>
+        <div id="save-clip-bar" style="display:none;background:#1a1a1a;padding:10px 16px">
+          <button onclick="saveClip()" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:8px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;touch-action:manipulation">
+            💾 Save Clip to Photos / Files
+          </button>
+        </div>
+        <div class="camera-controls">
+          <div class="rec-indicator" id="rec-indicator">
+            <div class="rec-dot"></div>
+            <span class="rec-time" id="rec-time">00:00</span>
+          </div>
+          <span style="font-size:12px;color:#888;margin-left:4px">🔍</span>
+          <input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1"
+            oninput="setZoom(this.value)" style="flex:1;accent-color:var(--accent);height:4px;margin:0 4px">
+          <span id="zoom-label" style="color:#aaa;font-size:11px;font-weight:700;min-width:26px;text-align:right">1×</span>
+          <button class="cam-btn" id="portrait-btn" onclick="togglePortrait()" title="Portrait mode"
+            style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:2px 5px;line-height:1">
+            <span style="font-size:15px">📱</span>
+            <span style="font-size:9px;color:#aaa">portrait</span>
+          </button>
+          <button class="cam-btn" onclick="flipCamera()" title="Flip camera" style="font-size:22px">🔄</button>
+          <button class="cam-btn" id="rec-btn" onclick="toggleRecording()" title="Record" style="color:#ef4444">⏺</button>
+          <button class="cam-btn" onclick="closeCamera()" title="Close" style="font-size:20px;color:#888">✕</button>
+        </div>
+      </div>
+
+      <div id="game-right-spacer" style="flex:1"></div>
+
+      <div class="bottom-bar">
+        <button class="timer-btn" id="sub-timer-btn" onclick="toggleSubTimer()">
+          <span class="timer-value" id="sub-timer-display">04:00</span>
+          <span>▶</span>
+        </button>
+        <button class="timer-btn swap-btn-pulse" id="swap-btn" onclick="doSwap()" title="Swap next players">
+          <span class="swap-icon">⇄</span>
+        </button>
+        <button class="timer-btn" id="game-timer-btn" onclick="toggleGameTimer()">
+          <span style="font-size:11px;color:#ffffff;font-weight:600;letter-spacing:1px" id="half-indicator">1st Half</span>
+          <span class="timer-value" id="game-timer-display">20:00</span>
+          <span>▶</span>
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -3735,40 +3765,32 @@ function setZoom(val) {
 
 async function togglePortrait() {
   isPortrait = !isPortrait;
-  const viewport = document.getElementById('camera-viewport');
-  const preview = document.getElementById('camera-preview');
   const btn = document.getElementById('portrait-btn');
+  if (btn) btn.style.color = isPortrait ? 'var(--accent)' : '';
 
-  if (isPortrait) {
-    viewport.style.height = '290px';
-    viewport.style.display = 'flex';
-    viewport.style.justifyContent = 'center';
-    preview.style.width = '163px';
-    preview.style.height = '290px';
-    preview.style.objectFit = 'cover';
-    if (btn) btn.style.color = 'var(--accent)';
-  } else {
-    viewport.style.height = '220px';
-    viewport.style.display = 'block';
-    preview.style.width = '100%';
-    preview.style.height = '220px';
-    preview.style.objectFit = 'cover';
-    if (btn) btn.style.color = '';
-  }
-
-  // Restart stream with correct orientation constraints
-  if (cameraStream) {
-    cameraStream.getTracks().forEach(t => t.stop());
-    try {
-      cameraStream = await navigator.mediaDevices.getUserMedia({
-        video: getCameraConstraints(),
-        audio: true,
-      });
-      preview.srcObject = cameraStream;
-    } catch(e) {
-      showNotification('Could not switch orientation');
+  // In landscape device orientation, CSS media query handles sizing; just restart stream.
+  // In portrait device orientation, apply inline sizing for the portrait preview panel.
+  if (!isLandscapeMode()) {
+    const viewport = document.getElementById('camera-viewport');
+    const preview = document.getElementById('camera-preview');
+    if (isPortrait) {
+      viewport.style.height = '290px';
+      viewport.style.display = 'flex';
+      viewport.style.justifyContent = 'center';
+      preview.style.width = '163px';
+      preview.style.height = '290px';
+      preview.style.objectFit = 'cover';
+    } else {
+      viewport.style.height = '220px';
+      viewport.style.display = '';
+      viewport.style.justifyContent = '';
+      preview.style.width = '100%';
+      preview.style.height = '220px';
+      preview.style.objectFit = 'cover';
     }
   }
+
+  await restartCameraStream();
 }
 
 function getCameraConstraints() {
@@ -3777,6 +3799,40 @@ function getCameraConstraints() {
     ? { facingMode: { ideal: cameraFacing }, width: { ideal: 3840, min: 1280 }, height: { ideal: 2160, min: 720 } }
     : { facingMode: { ideal: cameraFacing }, width: { ideal: 2160, min: 720 }, height: { ideal: 3840, min: 1280 } };
 }
+
+function isLandscapeMode() {
+  return window.innerWidth > window.innerHeight;
+}
+
+async function restartCameraStream() {
+  if (!cameraStream) return;
+  cameraStream.getTracks().forEach(t => t.stop());
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: getCameraConstraints(), audio: true });
+    document.getElementById('camera-preview').srcObject = cameraStream;
+  } catch(e) { showNotification('Could not switch camera orientation'); }
+}
+
+// Auto-switch recording orientation when device rotates
+window.addEventListener('resize', async function handleOrientationChange() {
+  if (!cameraStream) return;
+  const landscape = isLandscapeMode();
+  if (landscape && !isPortrait) {
+    isPortrait = true;
+    const btn = document.getElementById('portrait-btn');
+    if (btn) btn.style.color = 'var(--accent)';
+    await restartCameraStream();
+  } else if (!landscape && isPortrait) {
+    isPortrait = false;
+    const vp = document.getElementById('camera-viewport');
+    const pv = document.getElementById('camera-preview');
+    if (vp) { vp.style.height = '220px'; vp.style.display = ''; vp.style.justifyContent = ''; }
+    if (pv) { pv.style.width = '100%'; pv.style.height = '220px'; pv.style.objectFit = 'cover'; }
+    const btn = document.getElementById('portrait-btn');
+    if (btn) btn.style.color = '';
+    await restartCameraStream();
+  }
+});
 
 async function toggleCamera() {
   if (cameraStream) {
@@ -3787,6 +3843,12 @@ async function toggleCamera() {
 }
 
 async function openCamera() {
+  // Auto-switch to portrait recording when phone is in landscape
+  if (isLandscapeMode() && !isPortrait) {
+    isPortrait = true;
+    const btn = document.getElementById('portrait-btn');
+    if (btn) btn.style.color = 'var(--accent)';
+  }
   try {
     cameraStream = await navigator.mediaDevices.getUserMedia({
       video: getCameraConstraints(),
@@ -3823,14 +3885,12 @@ function closeCamera() {
   if (zl) zl.textContent = '1.0×';
   const prev = document.getElementById('camera-preview');
   if (prev) prev.style.transform = '';
-  if (isPortrait) {
-    isPortrait = false;
-    const vp = document.getElementById('camera-viewport');
-    if (vp) { vp.style.height = '220px'; vp.style.display = 'block'; }
-    if (prev) { prev.style.width = '100%'; prev.style.height = '220px'; prev.style.objectFit = 'cover'; }
-    const btn = document.getElementById('portrait-btn');
-    if (btn) btn.style.color = '';
-  }
+  isPortrait = false;
+  const vp = document.getElementById('camera-viewport');
+  if (vp) { vp.style.height = '220px'; vp.style.display = ''; vp.style.justifyContent = ''; }
+  if (prev) { prev.style.width = '100%'; prev.style.height = '220px'; prev.style.objectFit = 'cover'; }
+  const btn = document.getElementById('portrait-btn');
+  if (btn) btn.style.color = '';
 }
 
 async function flipCamera() {
@@ -3989,7 +4049,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v6';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
+  var swCode = "const CACHE = 'strikers-sub-v7';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
