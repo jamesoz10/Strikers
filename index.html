@@ -1122,6 +1122,7 @@
     <button class="settings-action-btn" onclick="showKeeperRotation()" style="color:var(--accent);border-color:var(--accent)">🧤 Keeper Rotation</button>
     <button class="settings-action-btn" onclick="generateRandomLineup()">🎲 Generate Random Lineup</button>
     <button class="settings-action-btn" onclick="showHelp()" style="color:#38bdf8;border-color:#38bdf8">❓ Help</button>
+    <button class="settings-action-btn" onclick="testAlerts()" style="color:#fb923c;border-color:#fb923c">🔔 Test Audio & Haptics</button>
 
     <div class="setting-row">
       <div class="setting-label">
@@ -2528,6 +2529,19 @@ function playKeeperChangeSound() {
   setTimeout(() => playBeep(659, 0.3, 0.5, 'triangle'), 300);
   setTimeout(() => playBeep(784, 0.5, 0.5, 'triangle'), 600);
   haptic([200, 80, 200, 80, 400], 'heavy');
+}
+
+// ---- Audio & haptic test sequence ----
+function testAlerts() {
+  unlockAudio();
+  const steps = [
+    [0,    () => { showNotification('🔔 Sub warning (30s)'); playWarningBeeps(); }],
+    [2000, () => { showNotification('🔔 Sub alert — time to sub!'); playSubAlertSound(); }],
+    [4500, () => { showNotification('🔔 Keeper warning (1 min)'); playKeeperWarningBeeps(); }],
+    [7000, () => { showNotification('🔔 Keeper change'); playKeeperChangeSound(); }],
+    [9500, () => { showNotification('✓ Audio & haptic test done'); }],
+  ];
+  steps.forEach(([delay, fn]) => setTimeout(fn, delay));
 }
 
 function updateKeeperTimerDisplay() {
@@ -3942,7 +3956,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v4';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
+  var swCode = "const CACHE = 'strikers-sub-v5';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
