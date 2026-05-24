@@ -96,6 +96,7 @@
 
   /* ===== LANDSCAPE LAYOUT ===== */
   @media (orientation: landscape) and (max-height: 500px) {
+    body { max-width: 100%; }
     .header-btn { padding: 10px 8px; }
     #game-main { flex-direction: row; }
     #game-left  { border-right: 2px solid var(--border); }
@@ -4059,7 +4060,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v8';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
+  var swCode = "const CACHE = 'strikers-sub-v9';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
