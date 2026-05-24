@@ -104,6 +104,8 @@
     .player-row { height: 60px; }
     .player-name { font-size: 18px; }
     /* Camera fills available height in right column */
+    #game-right { justify-content: space-between; }
+    #game-right-spacer { display: none; }
     #camera-panel    { flex: 1; min-height: 0; overflow: hidden; }
     #camera-viewport { height: auto !important; flex: 1; min-height: 0; position: relative !important; }
     #camera-preview  { position: absolute !important; top: 0; left: 0; width: 100% !important; height: 100% !important; object-fit: cover !important; }
@@ -3811,9 +3813,7 @@ function getCameraConstraints() {
 }
 
 function isLandscapeMode() {
-  if (screen && screen.orientation && screen.orientation.type) {
-    return screen.orientation.type.includes('landscape');
-  }
+  try { return window.matchMedia('(orientation: landscape)').matches; } catch(e) {}
   return window.innerWidth > window.innerHeight;
 }
 
@@ -4064,7 +4064,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v11';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
+  var swCode = "const CACHE = 'strikers-sub-v12';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
