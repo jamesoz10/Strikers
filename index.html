@@ -105,9 +105,9 @@
     .player-status-label { display: none; }
     .player-name { font-size: 18px; }
     /* Camera fills available height in right column */
-    #camera-panel   { flex: 1; min-height: 0; overflow: hidden; }
-    #camera-viewport { height: auto !important; flex: 1; min-height: 0; display: flex !important; align-items: center; justify-content: center; }
-    #camera-preview  { width: auto !important; height: 100% !important; aspect-ratio: 9/16; object-fit: cover; }
+    #camera-panel    { flex: 1; min-height: 0; overflow: hidden; }
+    #camera-viewport { height: auto !important; flex: 1; min-height: 0; position: relative !important; }
+    #camera-preview  { position: absolute !important; top: 0; left: 0; width: 100% !important; height: 100% !important; object-fit: contain; }
     /* Compact bottom-bar in right column */
     .bottom-bar   { border-top: 1px solid var(--border); }
     .timer-btn    { padding: 10px 4px; }
@@ -4060,7 +4060,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v9';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
+  var swCode = "const CACHE = 'strikers-sub-v10';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
