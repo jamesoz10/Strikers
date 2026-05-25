@@ -1200,6 +1200,10 @@
         oninput="state.teamName = this.value.trim(); updateTeamNameDisplays(); saveSeasonTeamName(); saveAppState()">
       <input type="text" class="team-name-input" id="opp-name-input" placeholder="Today's opponent..." maxlength="30"
         style="margin-top:8px" oninput="state.oppName = this.value.trim(); saveAppState()">
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="loc-home-btn" onclick="setMatchLocation('home')" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:14px;font-weight:600;cursor:pointer;transition:all 0.15s">🏠 Home</button>
+        <button id="loc-away-btn" onclick="setMatchLocation('away')" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:14px;font-weight:600;cursor:pointer;transition:all 0.15s">✈️ Away</button>
+      </div>
     </div>
 
     <button class="settings-action-btn" onclick="showSeasonStats()" style="color:#a78bfa;border-color:#a78bfa">📊 Season Stats</button>
@@ -1711,6 +1715,13 @@
         <button class="counter-btn" onclick="adjustEditScore('opp', 1)">+</button>
       </div>
     </div>
+    <div class="modal-section">
+      <div class="modal-label">Location</div>
+      <div style="display:flex;gap:8px">
+        <button id="edit-loc-home-btn" onclick="setEditLocation('home')" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:14px;font-weight:600;cursor:pointer">🏠 Home</button>
+        <button id="edit-loc-away-btn" onclick="setEditLocation('away')" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:14px;font-weight:600;cursor:pointer">✈️ Away</button>
+      </div>
+    </div>
     <button class="modal-ok" onclick="saveEditedGame()">Save</button>
     <button class="confirm-cancel-btn" style="width:100%;margin-top:8px;color:var(--red)" onclick="deleteGameFromModal()">🗑 Delete This Game</button>
     <button class="confirm-cancel-btn" style="width:100%;margin-top:8px" onclick="closeEditGameModal()">Cancel</button>
@@ -1773,6 +1784,7 @@ let state = {
   playerGoals: {}, // id -> goals scored this game
   teamName: '',
   oppName: '',
+  matchLocation: 'home',
   injuryPause: false,
   nextPlayerId: 10,
   prevScreen: 'game',
@@ -3078,6 +3090,26 @@ function syncTeamNameInputs() {
   if (ti) ti.value = state.teamName || '';
   if (oi) oi.value = state.oppName || '';
   updateTeamNameDisplays();
+  updateLocationButtons();
+}
+
+function setMatchLocation(loc) {
+  state.matchLocation = loc;
+  saveAppState();
+  updateLocationButtons();
+}
+
+function updateLocationButtons() {
+  const loc = state.matchLocation || 'home';
+  const homeBtn = document.getElementById('loc-home-btn');
+  const awayBtn = document.getElementById('loc-away-btn');
+  if (!homeBtn || !awayBtn) return;
+  homeBtn.style.background = loc === 'home' ? 'var(--accent)' : 'var(--card)';
+  homeBtn.style.color = loc === 'home' ? '#fff' : 'var(--text)';
+  homeBtn.style.borderColor = loc === 'home' ? 'var(--accent)' : 'var(--border)';
+  awayBtn.style.background = loc === 'away' ? 'var(--accent)' : 'var(--card)';
+  awayBtn.style.color = loc === 'away' ? '#fff' : 'var(--text)';
+  awayBtn.style.borderColor = loc === 'away' ? 'var(--accent)' : 'var(--border)';
 }
 
 function saveSeasonTeamName() {
@@ -3125,6 +3157,7 @@ function loadAppState() {
     if (s.nextPlayerId) state.nextPlayerId = s.nextPlayerId;
     if (s.teamName !== undefined) state.teamName = s.teamName;
     if (s.oppName !== undefined) state.oppName = s.oppName;
+    if (s.matchLocation !== undefined) state.matchLocation = s.matchLocation;
     if (s.keeperRotation) {
       const kr = state.keeperRotation;
       if (s.keeperRotation.enabled !== undefined) kr.enabled = s.keeperRotation.enabled;
@@ -3149,6 +3182,7 @@ function saveGameToSeason() {
     date: new Date().toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: '2-digit' }),
     opponent: state.oppName || 'Opponent',
     teamName: state.teamName || 'Strikers',
+    location: state.matchLocation || 'home',
     result: { team: state.score.team, opp: state.score.opp },
     playerStats,
   });
@@ -3226,9 +3260,10 @@ function renderSeasonStats() {
     .map((g, i) => ({ g, i }))
     .sort((a, b) => parseGameDate(b.g.date) - parseGameDate(a.g.date)).map(({ g, i }) => {
     const cls = g.result.team > g.result.opp ? 'win' : g.result.team < g.result.opp ? 'loss' : 'draw';
+    const locLabel = g.location === 'away' ? '<span style="font-size:11px;color:var(--text-muted);margin-left:4px">✈️</span>' : '<span style="font-size:11px;color:var(--text-muted);margin-left:4px">🏠</span>';
     return `<div class="game-history-row" onclick="showMatchStats(${i})">
       <span class="game-date">${g.date}</span>
-      <span class="game-opp">${g.opponent}</span>
+      <span class="game-opp">${g.opponent}${locLabel}</span>
       <span class="game-score ${cls}">${g.result.team}–${g.result.opp}</span>
       <span class="game-edit-hint">›</span>
     </div>`;
@@ -3292,10 +3327,13 @@ function showMatchStats(idx) {
     playerRows = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px">No player stats recorded</td></tr>`;
   }
 
+  const locTag = g.location === 'away'
+    ? '<span style="font-size:12px;background:var(--surface);border-radius:4px;padding:2px 8px;margin-left:8px">✈️ Away</span>'
+    : '<span style="font-size:12px;background:var(--surface);border-radius:4px;padding:2px 8px;margin-left:8px">🏠 Home</span>';
   document.getElementById('match-stats-content').innerHTML = `
     <div style="text-align:center;margin-bottom:20px">
       <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px">${g.date}</div>
-      <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:10px">${teamName} vs ${oppName}</div>
+      <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:10px">${teamName} vs ${oppName}${locTag}</div>
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:60px;font-weight:800;color:${resultColor};line-height:1.1">${g.result.team}–${g.result.opp}</div>
     </div>
     <div class="stats-section-title">Player Stats</div>
@@ -3316,16 +3354,37 @@ function showEditCurrentGame() {
 let editingGameIdx = -1;
 let editGameResult = { team: 0, opp: 0 };
 
+let editGameLocation = 'home';
+
 function showEditGameModal(idx) {
   editingGameIdx = idx;
   const g = seasonData.games[idx];
   editGameResult = { team: g.result.team, opp: g.result.opp };
+  editGameLocation = g.location || 'home';
   document.getElementById('edit-game-info').textContent = g.date;
   document.getElementById('edit-team-name').value = g.teamName || seasonData.teamName || 'Strikers';
   document.getElementById('edit-opp-name').value = g.opponent || '';
   document.getElementById('edit-team-score').textContent = editGameResult.team;
   document.getElementById('edit-opp-score').textContent = editGameResult.opp;
+  updateEditLocationButtons();
   document.getElementById('edit-game-modal').classList.add('show');
+}
+
+function setEditLocation(loc) {
+  editGameLocation = loc;
+  updateEditLocationButtons();
+}
+
+function updateEditLocationButtons() {
+  const homeBtn = document.getElementById('edit-loc-home-btn');
+  const awayBtn = document.getElementById('edit-loc-away-btn');
+  if (!homeBtn || !awayBtn) return;
+  homeBtn.style.background = editGameLocation === 'home' ? 'var(--accent)' : 'var(--card)';
+  homeBtn.style.color = editGameLocation === 'home' ? '#fff' : 'var(--text)';
+  homeBtn.style.borderColor = editGameLocation === 'home' ? 'var(--accent)' : 'var(--border)';
+  awayBtn.style.background = editGameLocation === 'away' ? 'var(--accent)' : 'var(--card)';
+  awayBtn.style.color = editGameLocation === 'away' ? '#fff' : 'var(--text)';
+  awayBtn.style.borderColor = editGameLocation === 'away' ? 'var(--accent)' : 'var(--border)';
 }
 
 function closeEditGameModal() {
@@ -3345,6 +3404,7 @@ function saveEditedGame() {
   seasonData.games[editingGameIdx].result = { ...editGameResult };
   seasonData.games[editingGameIdx].teamName = teamName;
   seasonData.games[editingGameIdx].opponent = oppName;
+  seasonData.games[editingGameIdx].location = editGameLocation;
   saveSeasonData();
   const fromMatchStats = viewingGameIdx === editingGameIdx;
   closeEditGameModal();
@@ -4140,7 +4200,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v13';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
+  var swCode = "const CACHE = 'strikers-sub-v14';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
