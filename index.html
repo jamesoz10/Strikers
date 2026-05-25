@@ -180,6 +180,34 @@
     text-overflow: ellipsis;
   }
 
+  .equity-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 4px;
+  }
+  .equity-bar-track {
+    flex: 1;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    min-width: 0;
+  }
+  .equity-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+  }
+  .equity-pct {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    min-width: 26px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
   .player-arrow {
     font-size: 22px;
     width: 32px;
@@ -2256,6 +2284,13 @@ function renderGame() {
 
   list.innerHTML = '';
 
+  // Equity bar calculations
+  const totalGameSecs = (state.settings.gameTime || 15) * 60 * 2;
+  const allInGameIds = [...onFieldIds, ...benchIds];
+  const avgFieldSecs = allInGameIds.length
+    ? allInGameIds.reduce((s, id) => s + (state.playerTimers[id] || 0), 0) / allInGameIds.length
+    : 0;
+
   [...onFieldIds, ...benchIds].forEach((id) => {
     const p = getPlayer(id);
     if (!p) return;
@@ -2306,6 +2341,29 @@ function renderGame() {
     labelEl.textContent = labelText;
     nameWrap.appendChild(nameEl);
     nameWrap.appendChild(labelEl);
+
+    // Equity bar
+    const fieldSecs = state.playerTimers[id] || 0;
+    const barPct = totalGameSecs > 0 ? Math.min(100, Math.round(fieldSecs / totalGameSecs * 100)) : 0;
+    const ratio = avgFieldSecs > 0 ? fieldSecs / avgFieldSecs : 1;
+    const barColor = ratio >= 0.9 ? 'var(--green)' : ratio >= 0.6 ? 'var(--yellow)' : 'var(--red)';
+    const equityRow = document.createElement('div');
+    equityRow.className = 'equity-bar-row';
+    const track = document.createElement('div');
+    track.className = 'equity-bar-track';
+    const fill = document.createElement('div');
+    fill.className = 'equity-bar-fill';
+    fill.style.width = barPct + '%';
+    fill.style.background = barColor;
+    track.appendChild(fill);
+    const pct = document.createElement('div');
+    pct.className = 'equity-pct';
+    pct.style.color = barColor;
+    pct.textContent = barPct + '%';
+    equityRow.appendChild(track);
+    equityRow.appendChild(pct);
+    nameWrap.appendChild(equityRow);
+
     row.appendChild(nameWrap);
 
     // Arrow
@@ -4064,7 +4122,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v12';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
+  var swCode = "const CACHE = 'strikers-sub-v13';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
