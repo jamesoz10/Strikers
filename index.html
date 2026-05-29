@@ -208,6 +208,28 @@
     flex-shrink: 0;
   }
 
+  /* ===== AWARD CHIPS ===== */
+  .award-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .award-chip {
+    padding: 7px 14px; border-radius: 20px; border: 1px solid var(--border);
+    background: var(--card); color: var(--text); font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s; touch-action: manipulation;
+  }
+  .award-chip.potm-selected { background: #f59e0b; border-color: #f59e0b; color: #1a1a1a; }
+  .award-chip.voucher-selected { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* ===== AWARDS CARD (match stats) ===== */
+  .awards-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 16px; margin-bottom: 16px;
+  }
+  .awards-card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); margin-bottom: 10px; }
+  .award-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+  .award-row + .award-row { border-top: 1px solid var(--border); }
+  .award-icon { font-size: 22px; flex-shrink: 0; }
+  .award-name { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 700; }
+  .award-label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+
   .player-arrow {
     font-size: 22px;
     width: 32px;
@@ -1721,6 +1743,15 @@
         <button id="edit-loc-home-btn" onclick="setEditLocation('home')" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:14px;font-weight:600;cursor:pointer">🏠 Home</button>
         <button id="edit-loc-away-btn" onclick="setEditLocation('away')" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:14px;font-weight:600;cursor:pointer">✈️ Away</button>
       </div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-label">🏆 Player of the Match</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Gets trophy + voucher. Tap to select, tap again to clear.</div>
+      <div class="award-chips" id="edit-potm-chips"></div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-label">🎟 Vouchers (up to 2 other players)</div>
+      <div class="award-chips" id="edit-voucher-chips"></div>
     </div>
     <button class="modal-ok" onclick="saveEditedGame()">Save</button>
     <button class="confirm-cancel-btn" style="width:100%;margin-top:8px;color:var(--red)" onclick="deleteGameFromModal()">🗑 Delete This Game</button>
@@ -3261,9 +3292,10 @@ function renderSeasonStats() {
     .sort((a, b) => parseGameDate(b.g.date) - parseGameDate(a.g.date)).map(({ g, i }) => {
     const cls = g.result.team > g.result.opp ? 'win' : g.result.team < g.result.opp ? 'loss' : 'draw';
     const locLabel = g.location === 'away' ? '<span style="font-size:11px;color:var(--text-muted);margin-left:4px">✈️</span>' : '<span style="font-size:11px;color:var(--text-muted);margin-left:4px">🏠</span>';
+    const trophyLabel = g.potm ? '<span style="font-size:11px;margin-left:4px">🏆</span>' : '';
     return `<div class="game-history-row" onclick="showMatchStats(${i})">
       <span class="game-date">${g.date}</span>
-      <span class="game-opp">${g.opponent}${locLabel}</span>
+      <span class="game-opp">${g.opponent}${locLabel}${trophyLabel}</span>
       <span class="game-score ${cls}">${g.result.team}–${g.result.opp}</span>
       <span class="game-edit-hint">›</span>
     </div>`;
@@ -3330,12 +3362,34 @@ function showMatchStats(idx) {
   const locTag = g.location === 'away'
     ? '<span style="font-size:12px;background:var(--surface);border-radius:4px;padding:2px 8px;margin-left:8px">✈️ Away</span>'
     : '<span style="font-size:12px;background:var(--surface);border-radius:4px;padding:2px 8px;margin-left:8px">🏠 Home</span>';
+
+  let awardsHtml = '';
+  if (g.potm || (g.vouchers && g.vouchers.length)) {
+    awardsHtml = '<div class="awards-card"><div class="awards-card-title">Awards</div>';
+    if (g.potm) {
+      awardsHtml += `<div class="award-row">
+        <div class="award-icon">🏆</div>
+        <div><div class="award-name">${g.potm}</div><div class="award-label">Player of the Match · Trophy + Voucher</div></div>
+      </div>`;
+    }
+    if (g.vouchers && g.vouchers.length) {
+      g.vouchers.forEach(name => {
+        awardsHtml += `<div class="award-row">
+          <div class="award-icon">🎟</div>
+          <div><div class="award-name">${name}</div><div class="award-label">Voucher</div></div>
+        </div>`;
+      });
+    }
+    awardsHtml += '</div>';
+  }
+
   document.getElementById('match-stats-content').innerHTML = `
     <div style="text-align:center;margin-bottom:20px">
       <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px">${g.date}</div>
       <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:10px">${teamName} vs ${oppName}${locTag}</div>
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:60px;font-weight:800;color:${resultColor};line-height:1.1">${g.result.team}–${g.result.opp}</div>
     </div>
+    ${awardsHtml}
     <div class="stats-section-title">Player Stats</div>
     <table class="stats-table">
       <thead><tr><th style="text-align:left">Name</th><th>⚽</th><th>Field</th><th>🥅</th></tr></thead>
@@ -3355,19 +3409,66 @@ let editingGameIdx = -1;
 let editGameResult = { team: 0, opp: 0 };
 
 let editGameLocation = 'home';
+let editGamePotm = '';
+let editGameVouchers = [];
 
 function showEditGameModal(idx) {
   editingGameIdx = idx;
   const g = seasonData.games[idx];
   editGameResult = { team: g.result.team, opp: g.result.opp };
   editGameLocation = g.location || 'home';
+  editGamePotm = g.potm || '';
+  editGameVouchers = g.vouchers ? [...g.vouchers] : [];
   document.getElementById('edit-game-info').textContent = g.date;
   document.getElementById('edit-team-name').value = g.teamName || seasonData.teamName || 'Strikers';
   document.getElementById('edit-opp-name').value = g.opponent || '';
   document.getElementById('edit-team-score').textContent = editGameResult.team;
   document.getElementById('edit-opp-score').textContent = editGameResult.opp;
   updateEditLocationButtons();
+  renderEditAwardChips();
   document.getElementById('edit-game-modal').classList.add('show');
+}
+
+function renderEditAwardChips() {
+  const g = seasonData.games[editingGameIdx];
+  const potmEl = document.getElementById('edit-potm-chips');
+  const voucherEl = document.getElementById('edit-voucher-chips');
+  if (!potmEl || !voucherEl || !g) return;
+  const names = g.playerStats
+    ? Object.values(g.playerStats).map(p => p.name).sort((a, b) => a.localeCompare(b))
+    : [];
+
+  potmEl.innerHTML = '';
+  voucherEl.innerHTML = '';
+
+  names.forEach(name => {
+    const isPotm = editGamePotm === name;
+    const potmBtn = document.createElement('button');
+    potmBtn.className = 'award-chip' + (isPotm ? ' potm-selected' : '');
+    potmBtn.textContent = (isPotm ? '🏆 ' : '') + name;
+    potmBtn.onclick = () => {
+      editGamePotm = isPotm ? '' : name;
+      editGameVouchers = editGameVouchers.filter(v => v !== name);
+      renderEditAwardChips();
+    };
+    potmEl.appendChild(potmBtn);
+
+    if (!isPotm) {
+      const isVoucher = editGameVouchers.includes(name);
+      const vBtn = document.createElement('button');
+      vBtn.className = 'award-chip' + (isVoucher ? ' voucher-selected' : '');
+      vBtn.textContent = (isVoucher ? '🎟 ' : '') + name;
+      vBtn.onclick = () => {
+        if (isVoucher) {
+          editGameVouchers = editGameVouchers.filter(v => v !== name);
+        } else if (editGameVouchers.length < 2) {
+          editGameVouchers.push(name);
+        }
+        renderEditAwardChips();
+      };
+      voucherEl.appendChild(vBtn);
+    }
+  });
 }
 
 function setEditLocation(loc) {
@@ -3405,6 +3506,8 @@ function saveEditedGame() {
   seasonData.games[editingGameIdx].teamName = teamName;
   seasonData.games[editingGameIdx].opponent = oppName;
   seasonData.games[editingGameIdx].location = editGameLocation;
+  seasonData.games[editingGameIdx].potm = editGamePotm;
+  seasonData.games[editingGameIdx].vouchers = [...editGameVouchers];
   saveSeasonData();
   const fromMatchStats = viewingGameIdx === editingGameIdx;
   closeEditGameModal();
@@ -4200,7 +4303,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v14';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
+  var swCode = "const CACHE = 'strikers-sub-v15';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
