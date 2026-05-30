@@ -1675,9 +1675,14 @@
 <!-- ========== RENAME PLAYER MODAL ========== -->
 <div id="rename-player-modal" class="modal-overlay">
   <div class="modal">
-    <h2>Rename Player</h2>
+    <h2>Edit Player</h2>
+    <div class="modal-label">Name</div>
     <input type="text" id="rename-player-input" class="team-name-input" maxlength="20"
-      placeholder="Player name..." style="margin-top:4px"
+      placeholder="Player name..."
+      onkeydown="if(event.key==='Enter')confirmRename()">
+    <div class="modal-label" style="margin-top:14px">Jersey Number <span style="color:var(--text-muted);font-weight:400">(optional)</span></div>
+    <input type="number" id="rename-player-number" class="team-name-input" min="1" max="99"
+      placeholder="e.g. 7" style="margin-top:4px;width:100px"
       onkeydown="if(event.key==='Enter')confirmRename()">
     <button class="modal-ok" style="margin-top:16px" onclick="confirmRename()">Save</button>
     <button class="confirm-cancel-btn" style="width:100%;margin-top:8px" onclick="closeRenameModal()">Cancel</button>
@@ -1773,8 +1778,10 @@
 
 <!-- ========== ADD PLAYER ROW (inline) ========== -->
 <div id="add-player-row" class="add-player-input-row" style="display:none">
-  <input type="text" id="new-player-name" placeholder="Player name..." maxlength="20"
+  <input type="text" id="new-player-name" placeholder="Name..." maxlength="20"
     onkeydown="if(event.key==='Enter')confirmAddPlayer()">
+  <input type="number" id="new-player-number" placeholder="#" min="1" max="99"
+    style="width:52px;flex-shrink:0" onkeydown="if(event.key==='Enter')confirmAddPlayer()">
   <button onclick="confirmAddPlayer()">Add</button>
 </div>
 
@@ -2376,7 +2383,13 @@ function renderGame() {
     nameWrap.className = 'player-info';
     const nameEl = document.createElement('div');
     nameEl.className = 'player-name ' + (onField ? 'on-field' : 'off-field');
-    nameEl.textContent = p.name;
+    if (p.number) {
+      const numSpan = document.createElement('span');
+      numSpan.style.cssText = 'color:var(--text-muted);font-size:13px;font-weight:600;margin-right:4px;opacity:0.8';
+      numSpan.textContent = '#' + p.number;
+      nameEl.appendChild(numSpan);
+    }
+    nameEl.appendChild(document.createTextNode(p.name));
     const labelEl = document.createElement('div');
     labelEl.className = 'player-status-label';
     labelEl.style.color = isKeeper ? 'var(--yellow)' : '';
@@ -3219,6 +3232,7 @@ function saveGameToSeason() {
   state.players.forEach(p => {
     playerStats[p.id] = {
       name: p.name,
+      number: p.number || null,
       goals: state.playerGoals[p.id] || 0,
       fieldSecs: state.playerTimers[p.id] || 0,
       keeperSecs: state.playerKeeperTimers[p.id] || 0,
@@ -3371,7 +3385,7 @@ function showMatchStats(idx) {
       keeperHtml = `<div class="stats-section-title">Goalkeeper${keepers.length > 1 ? 's' : ''}</div>
         <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:16px">` +
         keepers.map(k => `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">
-          <span style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700">🧤 ${k.name}</span>
+          <span style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700">🧤 ${k.number ? `<span style="font-size:13px;color:var(--text-muted)">#${k.number} </span>` : ''}${k.name}</span>
           <span style="color:var(--text-muted);font-size:14px">${formatTime(k.keeperSecs)}</span>
         </div>`).join('') + '</div>';
     }
@@ -3379,8 +3393,9 @@ function showMatchStats(idx) {
       const field = formatTime(p.fieldSecs || 0);
       const bench = gameDuration > 0 ? formatTime(Math.max(0, gameDuration - (p.fieldSecs || 0))) : '—';
       const keeper = p.keeperSecs > 0 ? formatTime(p.keeperSecs) : '—';
+      const numTag = p.number ? `<span style="color:var(--text-muted);font-size:11px;margin-right:4px">#${p.number}</span>` : '';
       return `<tr>
-        <td style="text-align:left;padding:8px 4px">${p.name}</td>
+        <td style="text-align:left;padding:8px 4px">${numTag}${p.name}</td>
         <td style="text-align:center">${p.goals || 0}</td>
         <td style="text-align:center">${field}</td>
         <td style="text-align:center">${bench}</td>
@@ -3745,8 +3760,13 @@ function renderPlayersList() {
 
     const name = document.createElement('div');
     name.className = 'players-item-name';
-    name.textContent = p.name;
-    if (p.isKeeper) name.textContent += ' 🥅';
+    if (p.number) {
+      const numSpan = document.createElement('span');
+      numSpan.style.cssText = 'color:var(--text-muted);font-size:13px;font-weight:700;margin-right:6px';
+      numSpan.textContent = '#' + p.number;
+      name.appendChild(numSpan);
+    }
+    name.appendChild(document.createTextNode(p.name + (p.isKeeper ? ' 🥅' : '')));
     row.appendChild(name);
 
     const renameBtn = document.createElement('button');
@@ -3791,7 +3811,10 @@ function confirmAddPlayer() {
   const input = document.getElementById('new-player-name');
   const name = input.value.trim();
   if (!name) return;
-  state.players.push({ id: state.nextPlayerId++, name, inGame: true, isKeeper: false });
+  const numVal = parseInt(document.getElementById('new-player-number').value);
+  const number = (!isNaN(numVal) && numVal >= 1 && numVal <= 99) ? numVal : null;
+  state.players.push({ id: state.nextPlayerId++, name, number, inGame: true, isKeeper: false });
+  document.getElementById('new-player-number').value = '';
   document.getElementById('add-player-row').style.display = 'none';
   renderPlayersList();
   saveAppState();
@@ -3805,6 +3828,7 @@ function showRenameModal(id) {
   const p = getPlayer(id);
   const input = document.getElementById('rename-player-input');
   input.value = p ? p.name : '';
+  document.getElementById('rename-player-number').value = p?.number || '';
   document.getElementById('rename-player-modal').classList.add('show');
   setTimeout(() => input.focus(), 100);
 }
@@ -3818,10 +3842,15 @@ function confirmRename() {
   if (renamingPlayerId === null) return;
   const name = document.getElementById('rename-player-input').value.trim();
   if (!name) return;
+  const numVal = parseInt(document.getElementById('rename-player-number').value);
   const p = getPlayer(renamingPlayerId);
-  if (p) p.name = name;
+  if (p) {
+    p.name = name;
+    p.number = (!isNaN(numVal) && numVal >= 1 && numVal <= 99) ? numVal : null;
+  }
   closeRenameModal();
   renderPlayersList();
+  renderGame();
   saveAppState();
 }
 
@@ -4358,7 +4387,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v18';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
+  var swCode = "const CACHE = 'strikers-sub-v19';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
