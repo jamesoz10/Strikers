@@ -1403,9 +1403,10 @@
   <div class="settings-body" style="padding:0;overflow-y:auto" id="stats-content">
     <!-- Rendered dynamically -->
   </div>
-  <div class="settings-footer" style="grid-template-columns:1fr 1fr 1fr">
+  <div class="settings-footer" style="grid-template-columns:1fr 1fr 1fr 1fr">
     <button class="footer-btn footer-btn-dark" onclick="clearSeasonData()" style="color:var(--red)">🗑 Clear</button>
     <button class="footer-btn footer-btn-dark" onclick="showAddGameModal()" style="color:var(--green)">➕ Add Game</button>
+    <button class="footer-btn footer-btn-dark" onclick="downloadSeasonData()" style="color:#38bdf8">⬇ Export</button>
     <button class="footer-btn footer-btn-green" onclick="switchScreen('settings')">Done</button>
   </div>
 </div>
@@ -3356,6 +3357,23 @@ function fmtMins(secs) {
   return m + 'm';
 }
 
+function downloadSeasonData() {
+  if (!seasonData.games.length) { showNotification('No season data to export'); return; }
+  const date = new Date().toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: '2-digit' }).replace(/\//g, '-');
+  const filename = `strikers-season-${date}.json`;
+  const json = JSON.stringify(seasonData, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showNotification('📥 Season data exported');
+}
+
 function clearSeasonData() {
   if (!confirm('Clear all season stats? This cannot be undone.')) return;
   seasonData = { teamName: state.teamName || 'Strikers', games: [] };
@@ -4387,7 +4405,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v19';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
+  var swCode = "const CACHE = 'strikers-sub-v20';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
