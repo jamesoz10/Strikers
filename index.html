@@ -1816,6 +1816,7 @@ let state = {
   playerTimers: {}, // id -> seconds on field this game
   playerKeeperTimers: {}, // id -> seconds as keeper this game
   playerGoals: {}, // id -> goals scored this game
+  subEvents: [], // { half, elapsedSecs, inNames, outNames }
   teamName: '',
   oppName: '',
   matchLocation: 'home',
@@ -3006,6 +3007,12 @@ function toggleDragMode() {
 // ===== SWAP — preview then confirm =====
 let pendingSwap = null; // { outId, inId }
 
+function getElapsedGameSecs() {
+  const halfLen = state.settings.halfLength * 60;
+  const halfElapsed = halfLen - state.gameTimerSecs;
+  return (state.currentHalf === 2 ? halfLen : 0) + halfElapsed;
+}
+
 function doSwap() {
   const slots = state.settings.fieldPlayers + 1;
   const n = state.settings.subsPerChange;
@@ -3071,9 +3078,15 @@ function executeSwap() {
 
     document.getElementById('sub-banner').classList.remove('show');
     document.getElementById('swap-btn').classList.remove('active');
-    const inNames  = inIds.map(id => getPlayer(id)?.name).join(' & ');
-    const outNames = outIds.map(id => getPlayer(id)?.name).join(' & ');
-    showNotification(`↔ ${inNames} on, ${outNames} off`);
+    const inNames  = inIds.map(id => getPlayer(id)?.name).filter(Boolean);
+    const outNames = outIds.map(id => getPlayer(id)?.name).filter(Boolean);
+    state.subEvents.push({
+      half: state.currentHalf,
+      elapsedSecs: getElapsedGameSecs(),
+      inNames,
+      outNames,
+    });
+    showNotification(`↔ ${inNames.join(' & ')} on, ${outNames.join(' & ')} off`);
     state.subTimerSecs = state.settings.subInterval * 60;
     updateSubTimerDisplay();
     renderGame();
@@ -3218,6 +3231,8 @@ function saveGameToSeason() {
     teamName: state.teamName || 'Strikers',
     location: state.matchLocation || 'home',
     result: { team: state.score.team, opp: state.score.opp },
+    gameDuration: getElapsedGameSecs(),
+    subEvents: state.subEvents ? [...state.subEvents] : [],
     playerStats,
   });
   saveSeasonData();
@@ -3345,21 +3360,55 @@ function showMatchStats(idx) {
   const oppName = g.opponent || 'Opponent';
   const resultColor = g.result.team > g.result.opp ? 'var(--green)' : g.result.team < g.result.opp ? 'var(--red)' : 'var(--text-muted)';
 
+  const gameDuration = g.gameDuration || 0;
+
+  let keeperHtml = '';
   let playerRows = '';
   if (g.playerStats && Object.keys(g.playerStats).length) {
     const players = Object.values(g.playerStats).sort((a, b) => (b.fieldSecs || 0) - (a.fieldSecs || 0));
+    const keepers = players.filter(p => p.keeperSecs > 0).sort((a, b) => (b.keeperSecs || 0) - (a.keeperSecs || 0));
+    if (keepers.length) {
+      keeperHtml = `<div class="stats-section-title">Goalkeeper${keepers.length > 1 ? 's' : ''}</div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:16px">` +
+        keepers.map(k => `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">
+          <span style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700">🧤 ${k.name}</span>
+          <span style="color:var(--text-muted);font-size:14px">${formatTime(k.keeperSecs)}</span>
+        </div>`).join('') + '</div>';
+    }
     playerRows = players.map(p => {
       const field = formatTime(p.fieldSecs || 0);
+      const bench = gameDuration > 0 ? formatTime(Math.max(0, gameDuration - (p.fieldSecs || 0))) : '—';
       const keeper = p.keeperSecs > 0 ? formatTime(p.keeperSecs) : '—';
       return `<tr>
         <td style="text-align:left;padding:8px 4px">${p.name}</td>
         <td style="text-align:center">${p.goals || 0}</td>
         <td style="text-align:center">${field}</td>
+        <td style="text-align:center">${bench}</td>
         <td style="text-align:center">${keeper}</td>
       </tr>`;
     }).join('');
   } else {
-    playerRows = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px">No player stats recorded</td></tr>`;
+    playerRows = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">No player stats recorded</td></tr>`;
+  }
+
+  let subsHtml = '';
+  if (g.subEvents && g.subEvents.length) {
+    const rows = g.subEvents.map(ev => {
+      const mins = Math.floor(ev.elapsedSecs / 60);
+      const secs = ev.elapsedSecs % 60;
+      const timeStr = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+      const halfLabel = ev.half === 1 ? '1st' : '2nd';
+      return `<div style="display:flex;align-items:baseline;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:13px;color:var(--text-muted);min-width:60px;flex-shrink:0">${timeStr} <span style="font-size:11px">${halfLabel}</span></span>
+        <span style="font-size:14px">
+          <span style="color:var(--green);font-weight:700">▲ ${ev.inNames.join(', ')}</span>
+          <span style="color:var(--text-muted)"> / </span>
+          <span style="color:var(--red);font-weight:700">▼ ${ev.outNames.join(', ')}</span>
+        </span>
+      </div>`;
+    }).join('');
+    subsHtml = `<div class="stats-section-title">Substitutions</div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:4px 14px;margin-bottom:16px">${rows}</div>`;
   }
 
   const locTag = g.location === 'away'
@@ -3393,9 +3442,11 @@ function showMatchStats(idx) {
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:60px;font-weight:800;color:${resultColor};line-height:1.1">${g.result.team}–${g.result.opp}</div>
     </div>
     ${awardsHtml}
+    ${keeperHtml}
+    ${subsHtml}
     <div class="stats-section-title">Player Stats</div>
     <table class="stats-table">
-      <thead><tr><th style="text-align:left">Name</th><th>⚽</th><th>Field</th><th>🥅</th></tr></thead>
+      <thead><tr><th style="text-align:left">Name</th><th>⚽</th><th>Field</th><th>Bench</th><th>🥅</th></tr></thead>
       <tbody>${playerRows}</tbody>
     </table>
   `;
@@ -3631,6 +3682,7 @@ function resetGame() {
   // Reset sub timer
   state.subTimerSecs = state.settings.subInterval * 60;
   // Reset all player timers and per-game stats
+  state.subEvents = [];
   state.players.forEach(p => {
     state.playerTimers[p.id] = 0;
     state.playerKeeperTimers[p.id] = 0;
@@ -4306,7 +4358,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v17';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
+  var swCode = "const CACHE = 'strikers-sub-v18';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
