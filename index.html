@@ -1186,7 +1186,7 @@
       <!-- ===== CAMERA PANEL ===== -->
       <div id="camera-panel" class="camera-panel" style="display:none">
         <div id="camera-viewport" style="overflow:hidden;background:#000;flex-shrink:0;height:220px;position:relative">
-          <video id="camera-preview" autoplay playsinline muted style="width:100%;height:220px;object-fit:cover;display:block;transform-origin:center center;transition:transform 0.2s"></video>
+          <video id="camera-preview" autoplay playsinline muted disablepictureinpicture style="width:100%;height:220px;object-fit:cover;display:block;transform-origin:center center;transition:transform 0.2s;transform:translateZ(0);will-change:transform;-webkit-transform:translateZ(0)"></video>
         </div>
         <div id="save-clip-bar" style="display:none;background:#1a1a1a;padding:10px 16px">
           <button onclick="saveClip()" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:8px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;touch-action:manipulation">
@@ -4171,10 +4171,9 @@ async function togglePortrait() {
 
 function getCameraConstraints() {
   // On iOS, width > height produces portrait output and height > width produces landscape — counterintuitive but correct.
-  // 1080p max — 4K causes stuttering in PWA preview on iOS.
   return isPortrait
-    ? { facingMode: { ideal: cameraFacing }, width: { ideal: 1920, min: 1280 }, height: { ideal: 1080, min: 720 }, frameRate: { ideal: 30, max: 60 } }
-    : { facingMode: { ideal: cameraFacing }, width: { ideal: 1080, min: 720 }, height: { ideal: 1920, min: 1280 }, frameRate: { ideal: 30, max: 60 } };
+    ? { facingMode: { ideal: cameraFacing }, width: { ideal: 3840, min: 1280 }, height: { ideal: 2160, min: 720 }, frameRate: { ideal: 30, max: 60 } }
+    : { facingMode: { ideal: cameraFacing }, width: { ideal: 2160, min: 720 }, height: { ideal: 3840, min: 1280 }, frameRate: { ideal: 30, max: 60 } };
 }
 
 function toggleCameraFullscreen() {
@@ -4440,7 +4439,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v21';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
+  var swCode = "const CACHE = 'strikers-sub-v22';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
