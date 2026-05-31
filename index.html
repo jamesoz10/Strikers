@@ -4169,11 +4169,22 @@ async function togglePortrait() {
   await restartCameraStream();
 }
 
-function getCameraConstraints() {
-  // On iOS, width > height produces portrait output and height > width produces landscape — counterintuitive but correct.
+function getPreviewConstraints() {
+  // 1080p for smooth live preview
   return isPortrait
-    ? { facingMode: { ideal: cameraFacing }, width: { ideal: 3840, min: 1280 }, height: { ideal: 2160, min: 720 }, frameRate: { ideal: 30, max: 60 } }
-    : { facingMode: { ideal: cameraFacing }, width: { ideal: 2160, min: 720 }, height: { ideal: 3840, min: 1280 }, frameRate: { ideal: 30, max: 60 } };
+    ? { facingMode: { ideal: cameraFacing }, width: { ideal: 1920, min: 1280 }, height: { ideal: 1080, min: 720 }, frameRate: { ideal: 30, max: 60 } }
+    : { facingMode: { ideal: cameraFacing }, width: { ideal: 1080, min: 720 }, height: { ideal: 1920, min: 1280 }, frameRate: { ideal: 30, max: 60 } };
+}
+
+function getRecordConstraints() {
+  // 4K for recording quality — on iOS, width > height = portrait output
+  return isPortrait
+    ? { facingMode: { ideal: cameraFacing }, width: { ideal: 3840, min: 1920 }, height: { ideal: 2160, min: 1080 }, frameRate: { ideal: 30, max: 60 } }
+    : { facingMode: { ideal: cameraFacing }, width: { ideal: 2160, min: 1080 }, height: { ideal: 3840, min: 1920 }, frameRate: { ideal: 30, max: 60 } };
+}
+
+function getCameraConstraints() {
+  return getPreviewConstraints();
 }
 
 function toggleCameraFullscreen() {
@@ -4307,11 +4318,17 @@ function toggleRecording() {
   }
 }
 
-function startRecording() {
+async function startRecording() {
   if (!cameraStream) return;
   recordedChunks = [];
   lastClipBlob = null;
   document.getElementById('save-clip-bar').style.display = 'none';
+
+  // Upgrade stream to 4K before recording starts
+  try {
+    const track = cameraStream.getVideoTracks()[0];
+    if (track) await track.applyConstraints(getRecordConstraints());
+  } catch(e) { /* continue at current resolution if applyConstraints fails */ }
 
   currentMimeType = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm']
     .find(t => { try { return MediaRecorder.isTypeSupported(t); } catch(e) { return false; } }) || '';
@@ -4330,6 +4347,11 @@ function startRecording() {
   };
 
   mediaRecorder.onstop = () => {
+    // Drop back to 1080p for smooth preview
+    try {
+      const track = cameraStream?.getVideoTracks()[0];
+      if (track) track.applyConstraints(getPreviewConstraints()).catch(() => {});
+    } catch(e) {}
     // Fallback: only show save button if stopAndSave didn't handle it
     const panelVisible = document.getElementById('camera-panel').style.display !== 'none';
     if (!lastClipBlob && recordedChunks.length > 0 && panelVisible) {
@@ -4439,7 +4461,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v22';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
+  var swCode = "const CACHE = 'strikers-sub-v23';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
