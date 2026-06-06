@@ -3685,7 +3685,14 @@ function shareMatchStatsImage() {
 
   // Player table
   icRR(ctx, PAD, y, W-PAD*2, tableH, 14, IC.card, IC.border);
-  const hc = [{l:'PLAYER',x:PAD+14,a:'left'},{l:'⚽',x:W-PAD-240,a:'center'},{l:'FIELD',x:W-PAD-130,a:'center'},{l:'BENCH',x:W-PAD-20,a:'center'}];
+  // 5 columns with ~100px gaps on right side
+  const hc = [
+    {l:'PLAYER', x:PAD+14,   a:'left'},
+    {l:'⚽',     x:W-PAD-300, a:'center'},
+    {l:'FIELD',  x:W-PAD-200, a:'center'},
+    {l:'BENCH',  x:W-PAD-100, a:'center'},
+    {l:'🥅',    x:W-PAD-14,  a:'right'},
+  ];
   ctx.fillStyle = IC.muted; ctx.font = `bold 15px ${IF}`;
   hc.forEach(c => { ctx.textAlign = c.a; ctx.fillText(c.l, c.x, y+26); });
   icLine(ctx, PAD+10, W-PAD-10, y+36);
@@ -3696,11 +3703,13 @@ function shareMatchStatsImage() {
     ctx.fillStyle = IC.text; ctx.font = `bold 20px ${IF}`; ctx.textAlign = 'left';
     ctx.fillText(p.name, PAD+14, my);
     ctx.fillStyle = (p.goals||0)>0 ? IC.green : IC.muted; ctx.font = `bold 20px ${IF}`; ctx.textAlign = 'center';
-    ctx.fillText(p.goals||0, W-PAD-240, my);
+    ctx.fillText(p.goals||0, W-PAD-300, my);
     ctx.fillStyle = IC.text;
-    ctx.fillText(formatTime(p.fieldSecs||0), W-PAD-130, my);
+    ctx.fillText(formatTime(p.fieldSecs||0), W-PAD-200, my);
     ctx.fillStyle = IC.muted;
-    ctx.fillText(gd>0 ? formatTime(Math.max(0,gd-(p.fieldSecs||0))) : '—', W-PAD-20, my);
+    ctx.fillText(gd>0 ? formatTime(Math.max(0,gd-(p.fieldSecs||0))) : '—', W-PAD-100, my);
+    ctx.fillStyle = p.keeperSecs>0 ? IC.accent : IC.muted; ctx.textAlign = 'right';
+    ctx.fillText(p.keeperSecs>0 ? formatTime(p.keeperSecs) : '—', W-PAD-14, my);
   });
   y += tableH + 20;
 
@@ -4975,7 +4984,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v36';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v37';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
