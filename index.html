@@ -1348,6 +1348,22 @@
     </div>
 
     <button class="settings-action-btn" onclick="resetGame()" style="color:var(--red);border-color:var(--red);touch-action:manipulation;-webkit-tap-highlight-color:rgba(239,68,68,0.2)">↺ Reset & New Game</button>
+
+    <div class="setting-row" style="margin-top:8px">
+      <div class="setting-label">☁ Cloud Sync</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.5">Share season stats between coaches using a 5-digit team code.<br>Requires a free <b style="color:var(--text)">Firebase Realtime Database</b> URL.</div>
+      <input type="url" id="sync-url-input" class="team-name-input" placeholder="https://your-app-default-rtdb.firebaseio.com"
+        style="font-size:12px" oninput="state.settings.syncUrl=this.value.trim();saveAppState()">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
+        <div style="font-size:13px;color:var(--text-muted)">Team code: <span id="sync-code-display" style="font-family:monospace;font-size:18px;font-weight:800;letter-spacing:3px;color:var(--accent)">—</span></div>
+        <button onclick="regenerateTeamCode()" style="background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;padding:4px 0">New code</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="settings-action-btn" onclick="syncUpload()" style="flex:1;color:var(--green);border-color:var(--green);margin:0">⬆ Upload</button>
+        <button class="settings-action-btn" onclick="syncDownload()" style="flex:1;color:#38bdf8;border-color:#38bdf8;margin:0">⬇ Download</button>
+      </div>
+    </div>
+
     <div style="height:20px"></div>
   </div>
 
@@ -1843,6 +1859,8 @@ let state = {
     subInterval: 4,
     gameTime: 20,
     halfLength: 20, // mins per half
+    syncUrl: '',
+    teamCode: '',
   },
   players: [
     { id: 1, name: 'Matejo', inGame: true, isKeeper: true },
@@ -3223,6 +3241,10 @@ function syncTeamNameInputs() {
   if (oi) oi.value = state.oppName || '';
   updateTeamNameDisplays();
   updateLocationButtons();
+  const urlInput = document.getElementById('sync-url-input');
+  if (urlInput) urlInput.value = state.settings.syncUrl || '';
+  const codeDisplay = document.getElementById('sync-code-display');
+  if (codeDisplay) codeDisplay.textContent = state.settings.teamCode || '—';
 }
 
 function setMatchLocation(loc) {
@@ -3426,6 +3448,68 @@ function renderSeasonStats() {
 function fmtMins(secs) {
   const m = Math.floor((secs || 0) / 60);
   return m + 'm';
+}
+
+// ===== CLOUD SYNC =====
+function regenerateTeamCode() {
+  if (!confirm('Generate a new team code? Coaches using your old code will no longer be able to sync.')) return;
+  state.settings.teamCode = '';
+  saveAppState();
+  const el = document.getElementById('sync-code-display');
+  if (el) el.textContent = '—';
+}
+
+async function syncUpload() {
+  const url = (state.settings.syncUrl || '').trim().replace(/\/$/, '');
+  if (!url) { showNotification('Enter your Firebase database URL first'); return; }
+  if (!seasonData.games.length) { showNotification('No season data to upload'); return; }
+  if (!state.settings.teamCode) {
+    state.settings.teamCode = String(Math.floor(10000 + Math.random() * 90000));
+    saveAppState();
+    const el = document.getElementById('sync-code-display');
+    if (el) el.textContent = state.settings.teamCode;
+  }
+  const code = state.settings.teamCode;
+  try {
+    showNotification('Uploading…');
+    const payload = { ...seasonData, _updated: Date.now(), _teamCode: code };
+    const res = await fetch(`${url}/teams/${code}.json`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(res.status);
+    showNotification(`✓ Uploaded — team code: ${code}`);
+  } catch(e) {
+    showNotification('Upload failed — check your database URL');
+  }
+}
+
+async function syncDownload() {
+  const url = (state.settings.syncUrl || '').trim().replace(/\/$/, '');
+  if (!url) { showNotification('Enter your Firebase database URL first'); return; }
+  const code = prompt('Enter 5-digit team code:');
+  if (!code || !/^\d{5}$/.test(code)) { showNotification('Team code must be 5 digits'); return; }
+  try {
+    showNotification('Downloading…');
+    const res = await fetch(`${url}/teams/${code}.json`);
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    if (!data || !data.games) { showNotification('No data found for that code'); return; }
+    const msg = `Download ${data.games.length} game(s) from ${data.teamName || 'that team'}?\n\nThis will REPLACE your current season data.`;
+    if (!confirm(msg)) return;
+    const { _updated, _teamCode, ...clean } = data;
+    seasonData = clean;
+    state.settings.teamCode = code;
+    saveSeasonData();
+    saveAppState();
+    const el = document.getElementById('sync-code-display');
+    if (el) el.textContent = code;
+    showNotification(`✓ Downloaded ${data.games.length} game(s)`);
+    renderSeasonStats();
+  } catch(e) {
+    showNotification('Download failed — check the code and URL');
+  }
 }
 
 function downloadSeasonData() {
@@ -4569,7 +4653,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v27';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v28';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
