@@ -1348,6 +1348,7 @@
     </div>
 
     <button class="settings-action-btn" onclick="resetGame()" style="color:var(--red);border-color:var(--red);touch-action:manipulation;-webkit-tap-highlight-color:rgba(239,68,68,0.2)">↺ Reset & New Game</button>
+    <button class="settings-action-btn" onclick="newSeason()" style="color:var(--yellow);border-color:var(--yellow);touch-action:manipulation;-webkit-tap-highlight-color:rgba(234,179,8,0.2);margin-top:8px">✦ New Season</button>
 
     <div class="setting-row" style="margin-top:8px">
       <div class="setting-label">☁ Cloud Sync</div>
@@ -3577,6 +3578,17 @@ function clearSeasonData() {
   showNotification('Season data cleared');
 }
 
+function newSeason() {
+  if (!confirm('Start a new season?\n\nThis will clear ALL season stats and your team code. This cannot be undone.')) return;
+  seasonData = { teamName: state.teamName || 'Strikers', games: [] };
+  state.settings.teamCode = '';
+  saveSeasonData();
+  saveAppState();
+  renderSeasonStats();
+  syncTeamNameInputs();
+  showNotification('New season started');
+}
+
 // ===== MATCH STATS SCREEN =====
 let viewingGameIdx = -1;
 
@@ -4693,7 +4705,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v31';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v32';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
