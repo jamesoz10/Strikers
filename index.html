@@ -951,6 +951,19 @@
     touch-action: manipulation;
   }
   .goal-btn:active { background: rgba(250,204,21,0.2); }
+  .goal-remove-btn {
+    background: var(--red);
+    border: none;
+    border-radius: 10px;
+    padding: 1px 7px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+    touch-action: manipulation;
+    line-height: 1.5;
+    -webkit-tap-highlight-color: transparent;
+  }
   .goal-count {
     font-size: 10px;
     color: var(--yellow);
@@ -1777,6 +1790,10 @@
       </div>
     </div>
     <div class="modal-section">
+      <div class="modal-label">⚽ Player Goals</div>
+      <div id="edit-player-goals-list"></div>
+    </div>
+    <div class="modal-section">
       <div class="modal-label">🏆 Player of the Match</div>
       <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Gets trophy + voucher. Tap to select, tap again to clear.</div>
       <div class="award-chips" id="edit-potm-chips"></div>
@@ -2460,12 +2477,27 @@ function renderGame() {
 
     // Goal button (on-field players only)
     if (onField) {
+      const goalWrap = document.createElement('div');
+      goalWrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px';
+
       const goalBtn = document.createElement('button');
       goalBtn.className = 'goal-btn';
       goalBtn.title = 'Log goal';
-      goalBtn.innerHTML = '⚽<span class="goal-count">' + ((state.playerGoals[id] || 0) > 0 ? state.playerGoals[id] : '') + '</span>';
+      goalBtn.textContent = '⚽';
       goalBtn.addEventListener('click', (e) => { e.stopPropagation(); logGoal(id); });
-      row.appendChild(goalBtn);
+      goalWrap.appendChild(goalBtn);
+
+      const goals = state.playerGoals[id] || 0;
+      if (goals > 0) {
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'goal-remove-btn';
+        removeBtn.textContent = goals;
+        removeBtn.title = 'Tap to remove a goal';
+        removeBtn.addEventListener('click', (e) => { e.stopPropagation(); removeGoal(id); });
+        goalWrap.appendChild(removeBtn);
+      }
+
+      row.appendChild(goalWrap);
     }
 
     // Time
@@ -3521,6 +3553,7 @@ let editGameResult = { team: 0, opp: 0 };
 let editGameLocation = 'home';
 let editGamePotm = '';
 let editGameVouchers = [];
+let editPlayerGoalsMap = {}; // { id: count }
 
 function showEditGameModal(idx) {
   editingGameIdx = idx;
@@ -3529,14 +3562,61 @@ function showEditGameModal(idx) {
   editGameLocation = g.location || 'home';
   editGamePotm = g.potm || '';
   editGameVouchers = g.vouchers ? [...g.vouchers] : [];
+  editPlayerGoalsMap = {};
+  if (g.playerStats) {
+    Object.entries(g.playerStats).forEach(([id, ps]) => { editPlayerGoalsMap[id] = ps.goals || 0; });
+  }
   document.getElementById('edit-game-info').textContent = g.date;
   document.getElementById('edit-team-name').value = g.teamName || seasonData.teamName || 'Strikers';
   document.getElementById('edit-opp-name').value = g.opponent || '';
   document.getElementById('edit-team-score').textContent = editGameResult.team;
   document.getElementById('edit-opp-score').textContent = editGameResult.opp;
   updateEditLocationButtons();
+  renderEditPlayerGoalsList();
   renderEditAwardChips();
   document.getElementById('edit-game-modal').classList.add('show');
+}
+
+function renderEditPlayerGoalsList() {
+  const container = document.getElementById('edit-player-goals-list');
+  if (!container) return;
+  const g = seasonData.games[editingGameIdx];
+  const players = g?.playerStats
+    ? Object.entries(g.playerStats).map(([id, ps]) => ({ id, ...ps })).sort((a, b) => a.name.localeCompare(b.name))
+    : [];
+  if (!players.length) { container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:4px 0">No player stats — use score counter above</div>'; return; }
+  container.innerHTML = '';
+  players.forEach(({ id, name, number }) => {
+    const goals = editPlayerGoalsMap[id] || 0;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)';
+    const nameEl = document.createElement('span');
+    nameEl.style.cssText = 'font-size:14px;font-weight:600';
+    nameEl.textContent = (number ? `#${number} ` : '') + name;
+    const controls = document.createElement('div');
+    controls.style.cssText = 'display:flex;align-items:center;gap:10px';
+    const dec = document.createElement('button');
+    dec.className = 'counter-btn';
+    dec.textContent = '−';
+    dec.onclick = () => { editPlayerGoalsMap[id] = Math.max(0, (editPlayerGoalsMap[id] || 0) - 1); syncEditTeamScore(); renderEditPlayerGoalsList(); };
+    const val = document.createElement('div');
+    val.className = 'counter-val';
+    val.style.minWidth = '28px';
+    val.textContent = goals;
+    const inc = document.createElement('button');
+    inc.className = 'counter-btn';
+    inc.textContent = '+';
+    inc.onclick = () => { editPlayerGoalsMap[id] = (editPlayerGoalsMap[id] || 0) + 1; syncEditTeamScore(); renderEditPlayerGoalsList(); };
+    controls.append(dec, val, inc);
+    row.append(nameEl, controls);
+    container.appendChild(row);
+  });
+}
+
+function syncEditTeamScore() {
+  const total = Object.values(editPlayerGoalsMap).reduce((s, v) => s + v, 0);
+  editGameResult.team = total;
+  document.getElementById('edit-team-score').textContent = total;
 }
 
 function renderEditAwardChips() {
@@ -3618,6 +3698,8 @@ function saveEditedGame() {
   seasonData.games[editingGameIdx].location = editGameLocation;
   seasonData.games[editingGameIdx].potm = editGamePotm;
   seasonData.games[editingGameIdx].vouchers = [...editGameVouchers];
+  const ps = seasonData.games[editingGameIdx].playerStats;
+  if (ps) Object.keys(editPlayerGoalsMap).forEach(id => { if (ps[id]) ps[id].goals = editPlayerGoalsMap[id] || 0; });
   saveSeasonData();
   const fromMatchStats = viewingGameIdx === editingGameIdx;
   closeEditGameModal();
@@ -3647,6 +3729,16 @@ function logGoal(playerId) {
   renderScoreDisplay();
   const p = getPlayer(playerId);
   showNotification('⚽ Goal — ' + (p ? p.name : 'Player') + '!');
+  renderGame();
+}
+
+function removeGoal(playerId) {
+  if ((state.playerGoals[playerId] || 0) <= 0) return;
+  state.playerGoals[playerId]--;
+  state.score.team = Math.max(0, state.score.team - 1);
+  renderScoreDisplay();
+  const p = getPlayer(playerId);
+  showNotification('↩ Goal removed — ' + (p ? p.name : 'Player'));
   renderGame();
 }
 
@@ -4461,7 +4553,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v23';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
+  var swCode = "const CACHE = 'strikers-sub-v24';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
