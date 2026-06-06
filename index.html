@@ -3504,7 +3504,7 @@ function icShare(canvas, filename) {
 
 function shareSeasonStatsImage() {
   if (!seasonData.games.length) { showNotification('No season data yet'); return; }
-  const W = 750, PAD = 32, DPR = 2, ROW_H = 48, GH_ROW = 44;
+  const W = 750, PAD = 36, DPR = 2, ROW_H = 62, GH_ROW = 56;
 
   let wins = 0, losses = 0, draws = 0, gf = 0, ga = 0;
   seasonData.games.forEach(g => {
@@ -3529,8 +3529,10 @@ function shareSeasonStatsImage() {
   const parseDate = s => { const p=(s||'').split('/'); return p.length===3 ? new Date(`20${p[2]}`,p[1]-1,p[0]).getTime() : 0; };
   const history = [...seasonData.games].sort((a,b) => parseDate(b.date)-parseDate(a.date));
 
-  const historyH = 24 + 20 + history.length * GH_ROW;
-  const H = PAD + 80 + 16 + 86 + 16 + 34 + players.length*ROW_H + PAD + historyH + PAD + 30 + PAD;
+  const headerH = 100, recordH = 106, tableHeadH = 42;
+  const historyH = 30 + 24 + history.length * GH_ROW;
+  const H = PAD + headerH + 20 + recordH + 20 + tableHeadH + players.length*ROW_H + PAD + historyH + PAD + 36 + PAD;
+
   const canvas = document.createElement('canvas');
   canvas.width = W * DPR; canvas.height = H * DPR;
   const ctx = canvas.getContext('2d');
@@ -3541,78 +3543,75 @@ function shareSeasonStatsImage() {
 
   // Header
   ctx.textAlign = 'center';
-  ctx.fillStyle = IC.accent; ctx.font = `bold 30px ${IF}`;
-  ctx.fillText(seasonData.teamName || 'Strikers', W/2, y+34);
-  ctx.fillStyle = IC.muted; ctx.font = `15px ${IF}`;
-  ctx.fillText(`Season Stats · ${seasonData.games.length} game${seasonData.games.length!==1?'s':''}`, W/2, y+62);
-  y += 80 + 16;
+  ctx.fillStyle = IC.accent; ctx.font = `bold 40px ${IF}`;
+  ctx.fillText(seasonData.teamName || 'Strikers', W/2, y+44);
+  ctx.fillStyle = IC.muted; ctx.font = `20px ${IF}`;
+  ctx.fillText(`Season Stats · ${seasonData.games.length} game${seasonData.games.length!==1?'s':''}`, W/2, y+80);
+  y += headerH + 20;
 
   // Record card
-  icRR(ctx, PAD, y, W-PAD*2, 86, 12, IC.card, IC.border);
+  icRR(ctx, PAD, y, W-PAD*2, recordH, 14, IC.card, IC.border);
   const cw = (W-PAD*2)/3;
   [[IC.green,wins,'Won'],[IC.muted,draws,'Drawn'],[IC.red,losses,'Lost']].forEach(([col,val,lbl],i) => {
     const cx = PAD + cw*i + cw/2;
-    ctx.fillStyle = col; ctx.font = `bold 30px ${IF}`; ctx.textAlign = 'center';
-    ctx.fillText(val, cx, y+44);
-    ctx.fillStyle = IC.muted; ctx.font = `13px ${IF}`;
-    ctx.fillText(lbl, cx, y+66);
+    ctx.fillStyle = col; ctx.font = `bold 40px ${IF}`; ctx.textAlign = 'center';
+    ctx.fillText(val, cx, y+56);
+    ctx.fillStyle = IC.muted; ctx.font = `17px ${IF}`;
+    ctx.fillText(lbl, cx, y+82);
   });
-  ctx.fillStyle = IC.muted; ctx.font = `12px ${IF}`; ctx.textAlign = 'right';
-  ctx.fillText(`GF ${gf}  GA ${ga}`, W-PAD-12, y+18);
-  y += 86 + 16;
+  ctx.fillStyle = IC.muted; ctx.font = `16px ${IF}`; ctx.textAlign = 'right';
+  ctx.fillText(`GF ${gf}  GA ${ga}`, W-PAD-14, y+22);
+  y += recordH + 20;
 
   // Player stats table header
-  const pc = [{l:'PLAYER',x:PAD+10,a:'left'},{l:'⚽',x:W-PAD-180,a:'center'},{l:'FIELD',x:W-PAD-96,a:'center'},{l:'GP',x:W-PAD-16,a:'right'}];
-  ctx.fillStyle = IC.muted; ctx.font = `bold 11px ${IF}`;
-  pc.forEach(c => { ctx.textAlign = c.a; ctx.fillText(c.l, c.x, y+20); });
-  icLine(ctx, PAD, W-PAD, y+28);
-  y += 34;
+  const pc = [{l:'PLAYER',x:PAD+12,a:'left'},{l:'⚽',x:W-PAD-182,a:'center'},{l:'FIELD',x:W-PAD-100,a:'center'},{l:'GP',x:W-PAD-16,a:'right'}];
+  ctx.fillStyle = IC.muted; ctx.font = `bold 15px ${IF}`;
+  pc.forEach(c => { ctx.textAlign = c.a; ctx.fillText(c.l, c.x, y+24); });
+  icLine(ctx, PAD, W-PAD, y+34);
+  y += tableHeadH;
 
   // Player rows
   players.forEach((p, i) => {
-    const ry = y + i*ROW_H, my = ry + ROW_H/2 + 7;
+    const ry = y + i*ROW_H, my = ry + ROW_H/2 + 9;
     if (i%2===1) { ctx.fillStyle='rgba(30,41,59,0.6)'; ctx.fillRect(PAD, ry, W-PAD*2, ROW_H); }
-    ctx.fillStyle = IC.muted; ctx.font = `12px ${IF}`; ctx.textAlign = 'right';
-    ctx.fillText(i+1, PAD+22, my);
-    ctx.fillStyle = IC.text; ctx.font = `bold 17px ${IF}`; ctx.textAlign = 'left';
-    ctx.fillText(p.name, PAD+30, my);
-    ctx.fillStyle = p.goals>0 ? IC.green : IC.muted; ctx.font = `bold 17px ${IF}`; ctx.textAlign = 'center';
-    ctx.fillText(p.goals||'—', W-PAD-180, my);
+    ctx.fillStyle = IC.muted; ctx.font = `16px ${IF}`; ctx.textAlign = 'right';
+    ctx.fillText(i+1, PAD+26, my);
+    ctx.fillStyle = IC.text; ctx.font = `bold 22px ${IF}`; ctx.textAlign = 'left';
+    ctx.fillText(p.name, PAD+36, my);
+    ctx.fillStyle = p.goals>0 ? IC.green : IC.muted; ctx.font = `bold 22px ${IF}`; ctx.textAlign = 'center';
+    ctx.fillText(p.goals||'—', W-PAD-182, my);
     ctx.fillStyle = IC.text;
-    ctx.fillText(fmtMins(p.fieldSecs||0), W-PAD-96, my);
+    ctx.fillText(fmtMins(p.fieldSecs||0), W-PAD-100, my);
     ctx.fillStyle = IC.muted; ctx.textAlign = 'right';
     ctx.fillText(p.games, W-PAD-16, my);
   });
   y += players.length * ROW_H + PAD;
 
   // Game history section
-  ctx.fillStyle = IC.muted; ctx.font = `bold 11px ${IF}`; ctx.textAlign = 'left';
-  ctx.fillText('GAME HISTORY', PAD, y+16);
-  icLine(ctx, PAD, W-PAD, y+24);
-  y += 44;
+  ctx.fillStyle = IC.muted; ctx.font = `bold 15px ${IF}`; ctx.textAlign = 'left';
+  ctx.fillText('GAME HISTORY', PAD, y+20);
+  icLine(ctx, PAD, W-PAD, y+30);
+  y += 54;
 
   history.forEach((g, i) => {
-    const ry = y + i*GH_ROW, my = ry + GH_ROW/2 + 6;
+    const ry = y + i*GH_ROW, my = ry + GH_ROW/2 + 8;
     if (i%2===1) { ctx.fillStyle='rgba(30,41,59,0.6)'; ctx.fillRect(PAD, ry, W-PAD*2, GH_ROW); }
-    // Date
-    ctx.fillStyle = IC.muted; ctx.font = `13px ${IF}`; ctx.textAlign = 'left';
+    ctx.fillStyle = IC.muted; ctx.font = `16px ${IF}`; ctx.textAlign = 'left';
     ctx.fillText(g.date || '', PAD+10, my);
-    // Opponent + location
-    ctx.fillStyle = IC.text; ctx.font = `bold 16px ${IF}`;
+    ctx.fillStyle = IC.text; ctx.font = `bold 20px ${IF}`;
     const locEmoji = g.location === 'away' ? ' ✈' : ' 🏠';
     const potmMark = g.potm ? ' 🏆' : '';
-    ctx.fillText((g.opponent || 'Opponent') + locEmoji + potmMark, PAD + 120, my);
-    // Score
+    ctx.fillText((g.opponent || 'Opponent') + locEmoji + potmMark, PAD + 136, my);
     const t = g.result?.team ?? 0, o = g.result?.opp ?? 0;
-    const scoreCol = t > o ? IC.green : t < o ? IC.red : IC.muted;
-    ctx.fillStyle = scoreCol; ctx.font = `bold 18px ${IF}`; ctx.textAlign = 'right';
+    ctx.fillStyle = t>o ? IC.green : t<o ? IC.red : IC.muted;
+    ctx.font = `bold 22px ${IF}`; ctx.textAlign = 'right';
     ctx.fillText(`${t}–${o}`, W-PAD-10, my);
   });
   y += history.length * GH_ROW + PAD;
 
   // Watermark
-  ctx.fillStyle = IC.muted; ctx.font = `12px ${IF}`; ctx.textAlign = 'center';
-  ctx.fillText('Strikers Sub Manager', W/2, y+14);
+  ctx.fillStyle = IC.muted; ctx.font = `16px ${IF}`; ctx.textAlign = 'center';
+  ctx.fillText('Strikers Sub Manager', W/2, y+18);
 
   icShare(canvas, 'season-stats.png');
   showNotification('Generating image…');
@@ -3622,7 +3621,7 @@ function shareMatchStatsImage() {
   if (viewingGameIdx < 0) return;
   const g = seasonData.games[viewingGameIdx];
   if (!g) return;
-  const W = 750, PAD = 32, DPR = 2, ROW_H = 46;
+  const W = 750, PAD = 36, DPR = 2, ROW_H = 58;
 
   const teamName = g.teamName || seasonData.teamName || 'Strikers';
   const oppName = g.opponent || 'Opponent';
@@ -3634,10 +3633,10 @@ function shareMatchStatsImage() {
   (g.vouchers||[]).forEach(v => awards.push({icon:'🎟', name:v, label:'Voucher'}));
   const subs = g.subEvents || [];
 
-  const awardsH = awards.length ? 36 + awards.length*44 : 0;
-  const tableH = 36 + players.length*ROW_H;
-  const subsH = subs.length ? 36 + subs.length*40 : 0;
-  const H = PAD + 80 + 16 + 70 + (awardsH?16+awardsH:0) + 16 + tableH + (subsH?16+subsH:0) + PAD + 30 + PAD;
+  const awardsH = awards.length ? 42 + awards.length*54 : 0;
+  const tableH = 42 + players.length*ROW_H;
+  const subsH = subs.length ? 42 + subs.length*50 : 0;
+  const H = PAD + 96 + 20 + 86 + (awardsH?20+awardsH:0) + 20 + tableH + (subsH?20+subsH:0) + PAD + 36 + PAD;
 
   const canvas = document.createElement('canvas');
   canvas.width = W*DPR; canvas.height = H*DPR;
@@ -3650,85 +3649,85 @@ function shareMatchStatsImage() {
 
   // Header
   ctx.textAlign = 'center';
-  ctx.fillStyle = IC.text; ctx.font = `bold 26px ${IF}`;
-  ctx.fillText(`${teamName} vs ${oppName}`, W/2, y+32);
-  ctx.fillStyle = IC.muted; ctx.font = `14px ${IF}`;
+  ctx.fillStyle = IC.text; ctx.font = `bold 32px ${IF}`;
+  ctx.fillText(`${teamName} vs ${oppName}`, W/2, y+38);
+  ctx.fillStyle = IC.muted; ctx.font = `19px ${IF}`;
   const locStr = g.location==='away' ? 'Away' : 'Home';
-  ctx.fillText(`${g.date||''} · ${locStr}`, W/2, y+60);
-  y += 80 + 16;
+  ctx.fillText(`${g.date||''} · ${locStr}`, W/2, y+72);
+  y += 96 + 20;
 
   // Score
-  icRR(ctx, PAD, y, W-PAD*2, 70, 12, IC.card, IC.border);
-  ctx.fillStyle = winCol; ctx.font = `bold 42px ${IF}`; ctx.textAlign = 'center';
-  ctx.fillText(`${g.result.team}`, W/2-70, y+46);
-  ctx.fillStyle = IC.muted; ctx.font = `bold 24px ${IF}`;
-  ctx.fillText('—', W/2, y+44);
-  ctx.fillStyle = IC.text; ctx.font = `bold 42px ${IF}`;
-  ctx.fillText(`${g.result.opp}`, W/2+70, y+46);
-  y += 70 + 16;
+  icRR(ctx, PAD, y, W-PAD*2, 86, 14, IC.card, IC.border);
+  ctx.fillStyle = winCol; ctx.font = `bold 54px ${IF}`; ctx.textAlign = 'center';
+  ctx.fillText(`${g.result.team}`, W/2-80, y+58);
+  ctx.fillStyle = IC.muted; ctx.font = `bold 30px ${IF}`;
+  ctx.fillText('—', W/2, y+56);
+  ctx.fillStyle = IC.text; ctx.font = `bold 54px ${IF}`;
+  ctx.fillText(`${g.result.opp}`, W/2+80, y+58);
+  y += 86 + 20;
 
   // Awards
   if (awardsH) {
-    icRR(ctx, PAD, y, W-PAD*2, awardsH, 12, IC.card, IC.border);
-    ctx.fillStyle = IC.yellow; ctx.font = `bold 11px ${IF}`; ctx.textAlign = 'left';
-    ctx.fillText('AWARDS', PAD+14, y+22);
+    icRR(ctx, PAD, y, W-PAD*2, awardsH, 14, IC.card, IC.border);
+    ctx.fillStyle = IC.yellow; ctx.font = `bold 15px ${IF}`; ctx.textAlign = 'left';
+    ctx.fillText('AWARDS', PAD+16, y+26);
     awards.forEach((aw, i) => {
-      const ay = y+36+i*44;
-      ctx.font = `20px ${IF}`; ctx.fillStyle = IC.text; ctx.textAlign = 'left';
-      ctx.fillText(aw.icon, PAD+14, ay+22);
-      ctx.fillStyle = IC.text; ctx.font = `bold 16px ${IF}`;
-      ctx.fillText(aw.name, PAD+46, ay+16);
-      ctx.fillStyle = IC.muted; ctx.font = `12px ${IF}`;
-      ctx.fillText(aw.label, PAD+46, ay+34);
+      const ay = y+42+i*54;
+      ctx.font = `26px ${IF}`; ctx.fillStyle = IC.text; ctx.textAlign = 'left';
+      ctx.fillText(aw.icon, PAD+14, ay+26);
+      ctx.fillStyle = IC.text; ctx.font = `bold 22px ${IF}`;
+      ctx.fillText(aw.name, PAD+54, ay+20);
+      ctx.fillStyle = IC.muted; ctx.font = `15px ${IF}`;
+      ctx.fillText(aw.label, PAD+54, ay+42);
     });
-    y += awardsH + 16;
+    y += awardsH + 20;
   }
 
   // Player table
-  icRR(ctx, PAD, y, W-PAD*2, tableH, 12, IC.card, IC.border);
-  const hc = [{l:'PLAYER',x:PAD+14,a:'left'},{l:'⚽',x:W-PAD-200,a:'center'},{l:'FIELD',x:W-PAD-130,a:'center'},{l:'BENCH',x:W-PAD-62,a:'center'},{l:'🥅',x:W-PAD-14,a:'right'}];
-  ctx.fillStyle = IC.muted; ctx.font = `bold 11px ${IF}`;
-  hc.forEach(c => { ctx.textAlign = c.a; ctx.fillText(c.l, c.x, y+22); });
-  icLine(ctx, PAD+10, W-PAD-10, y+30);
+  icRR(ctx, PAD, y, W-PAD*2, tableH, 14, IC.card, IC.border);
+  const hc = [{l:'PLAYER',x:PAD+14,a:'left'},{l:'⚽',x:W-PAD-196,a:'center'},{l:'FIELD',x:W-PAD-126,a:'center'},{l:'BENCH',x:W-PAD-58,a:'center'},{l:'🥅',x:W-PAD-14,a:'right'}];
+  ctx.fillStyle = IC.muted; ctx.font = `bold 15px ${IF}`;
+  hc.forEach(c => { ctx.textAlign = c.a; ctx.fillText(c.l, c.x, y+26); });
+  icLine(ctx, PAD+10, W-PAD-10, y+36);
   const gd = g.gameDuration || 0;
   players.forEach((p, i) => {
-    const ry = y+36+i*ROW_H, my = ry+ROW_H/2+6;
+    const ry = y+42+i*ROW_H, my = ry+ROW_H/2+8;
     if (i%2===1) { ctx.fillStyle='rgba(255,255,255,0.03)'; ctx.fillRect(PAD, ry, W-PAD*2, ROW_H); }
-    ctx.fillStyle = IC.text; ctx.font = `bold 16px ${IF}`; ctx.textAlign = 'left';
+    ctx.fillStyle = IC.text; ctx.font = `bold 20px ${IF}`; ctx.textAlign = 'left';
     ctx.fillText(p.name, PAD+14, my);
-    ctx.fillStyle = (p.goals||0)>0 ? IC.green : IC.muted; ctx.font = `bold 16px ${IF}`; ctx.textAlign = 'center';
-    ctx.fillText(p.goals||0, W-PAD-200, my);
+    ctx.fillStyle = (p.goals||0)>0 ? IC.green : IC.muted; ctx.font = `bold 20px ${IF}`; ctx.textAlign = 'center';
+    ctx.fillText(p.goals||0, W-PAD-196, my);
     ctx.fillStyle = IC.text;
-    ctx.fillText(formatTime(p.fieldSecs||0), W-PAD-130, my);
+    ctx.fillText(formatTime(p.fieldSecs||0), W-PAD-126, my);
     ctx.fillStyle = IC.muted;
-    ctx.fillText(gd>0 ? formatTime(Math.max(0,gd-(p.fieldSecs||0))) : '—', W-PAD-62, my);
+    ctx.fillText(gd>0 ? formatTime(Math.max(0,gd-(p.fieldSecs||0))) : '—', W-PAD-58, my);
     ctx.fillStyle = p.keeperSecs>0 ? IC.accent : IC.muted; ctx.textAlign = 'right';
     ctx.fillText(p.keeperSecs>0 ? formatTime(p.keeperSecs) : '—', W-PAD-14, my);
   });
-  y += tableH + 16;
+  y += tableH + 20;
 
   // Subs
   if (subsH) {
-    icRR(ctx, PAD, y, W-PAD*2, subsH, 12, IC.card, IC.border);
-    ctx.fillStyle = IC.muted; ctx.font = `bold 11px ${IF}`; ctx.textAlign = 'left';
-    ctx.fillText('SUBSTITUTIONS', PAD+14, y+22);
+    icRR(ctx, PAD, y, W-PAD*2, subsH, 14, IC.card, IC.border);
+    ctx.fillStyle = IC.muted; ctx.font = `bold 15px ${IF}`; ctx.textAlign = 'left';
+    ctx.fillText('SUBSTITUTIONS', PAD+16, y+26);
     subs.forEach((ev, i) => {
-      const sy = y+36+i*40;
+      const sy = y+42+i*50;
       const mins = Math.floor(ev.elapsedSecs/60), secs = ev.elapsedSecs%60;
       const tStr = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
-      ctx.fillStyle = IC.muted; ctx.font = `13px ${IF}`; ctx.textAlign = 'left';
-      ctx.fillText(tStr, PAD+14, sy+18);
-      ctx.fillStyle = IC.green; ctx.font = `bold 13px ${IF}`;
-      ctx.fillText('▲ '+ev.inNames.join(', '), PAD+70, sy+18);
+      ctx.fillStyle = IC.muted; ctx.font = `17px ${IF}`; ctx.textAlign = 'left';
+      ctx.fillText(tStr, PAD+14, sy+20);
+      ctx.fillStyle = IC.green; ctx.font = `bold 17px ${IF}`;
+      ctx.fillText('▲ '+ev.inNames.join(', '), PAD+76, sy+20);
       ctx.fillStyle = IC.red;
-      ctx.fillText('▼ '+ev.outNames.join(', '), PAD+70, sy+34);
+      ctx.fillText('▼ '+ev.outNames.join(', '), PAD+76, sy+40);
     });
-    y += subsH + 16;
+    y += subsH + 20;
   }
 
   // Watermark
-  ctx.fillStyle = IC.muted; ctx.font = `12px ${IF}`; ctx.textAlign = 'center';
-  ctx.fillText('Strikers Sub Manager', W/2, y+14);
+  ctx.fillStyle = IC.muted; ctx.font = `16px ${IF}`; ctx.textAlign = 'center';
+  ctx.fillText('Strikers Sub Manager', W/2, y+18);
 
   icShare(canvas, `match-${(g.date||'game').replace(/\//g,'-')}.png`);
   showNotification('Generating image…');
@@ -4978,7 +4977,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v34';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v35';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
