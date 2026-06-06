@@ -1464,10 +1464,11 @@
   <div class="settings-body" style="padding:0;overflow-y:auto" id="stats-content">
     <!-- Rendered dynamically -->
   </div>
-  <div class="settings-footer" style="grid-template-columns:1fr 1fr 1fr 1fr">
+  <div class="settings-footer" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr">
     <button class="footer-btn footer-btn-dark" onclick="clearSeasonData()" style="color:var(--red)">🗑 Clear</button>
-    <button class="footer-btn footer-btn-dark" onclick="showAddGameModal()" style="color:var(--green)">➕ Add Game</button>
-    <button class="footer-btn footer-btn-dark" onclick="downloadSeasonData()" style="color:#38bdf8">⬇ Export</button>
+    <button class="footer-btn footer-btn-dark" onclick="showAddGameModal()" style="color:var(--green)">➕ Add</button>
+    <button class="footer-btn footer-btn-dark" onclick="downloadSeasonData()" style="color:#38bdf8">⬇ JSON</button>
+    <button class="footer-btn footer-btn-dark" onclick="shareSeasonStatsImage()" style="color:#a78bfa">📸 Image</button>
     <button class="footer-btn footer-btn-green" onclick="switchScreen('settings')">Done</button>
   </div>
 </div>
@@ -1642,7 +1643,10 @@
   <div class="settings-header" style="display:flex;align-items:center;justify-content:space-between;padding:0 8px">
     <button onclick="switchScreen('stats');renderSeasonStats()" style="background:none;border:none;color:var(--text);font-size:22px;cursor:pointer;touch-action:manipulation;padding:8px">←</button>
     <h1 style="margin:0;font-size:18px">Match Stats</h1>
-    <button onclick="showEditCurrentGame()" style="background:none;border:none;color:var(--accent);font-size:20px;cursor:pointer;touch-action:manipulation;padding:8px">✏️</button>
+    <div style="display:flex;align-items:center">
+      <button onclick="shareMatchStatsImage()" style="background:none;border:none;color:#a78bfa;font-size:20px;cursor:pointer;touch-action:manipulation;padding:8px">📸</button>
+      <button onclick="showEditCurrentGame()" style="background:none;border:none;color:var(--accent);font-size:20px;cursor:pointer;touch-action:manipulation;padding:8px">✏️</button>
+    </div>
   </div>
   <div class="settings-body" id="match-stats-content" style="overflow-y:auto;padding:16px 16px 24px"></div>
 </div>
@@ -3461,6 +3465,246 @@ function fmtMins(secs) {
   return m + 'm';
 }
 
+// ===== IMAGE SHARING =====
+const IC = {
+  bg:'#0f172a', card:'#1e293b', accent:'#38bdf8', green:'#22c55e',
+  yellow:'#eab308', red:'#ef4444', text:'#f1f5f9', muted:'#94a3b8', border:'#334155',
+};
+const IF = '-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Arial,sans-serif';
+
+function icRR(ctx, x, y, w, h, r, fill, stroke) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r); ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h); ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r); ctx.arcTo(x,y,x+r,y,r);
+  ctx.closePath();
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); }
+}
+
+function icLine(ctx, x1, x2, y) {
+  ctx.strokeStyle = IC.border; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.stroke();
+}
+
+function icShare(canvas, filename) {
+  canvas.toBlob(blob => {
+    const file = new File([blob], filename, { type: 'image/png' });
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file] }).catch(() => {});
+    } else {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
+  }, 'image/png');
+}
+
+function shareSeasonStatsImage() {
+  if (!seasonData.games.length) { showNotification('No season data yet'); return; }
+  const W = 750, PAD = 32, DPR = 2, ROW_H = 48;
+
+  let wins = 0, losses = 0, draws = 0, gf = 0, ga = 0;
+  seasonData.games.forEach(g => {
+    const t = g.result?.team || 0, o = g.result?.opp || 0;
+    gf += t; ga += o;
+    if (t > o) wins++; else if (t < o) losses++; else draws++;
+  });
+
+  const agg = {};
+  seasonData.games.forEach(g => {
+    Object.entries(g.playerStats || {}).forEach(([id, ps]) => {
+      if (!ps) return;
+      if (!agg[id]) agg[id] = { name: ps.name, goals: 0, fieldSecs: 0, games: 0 };
+      agg[id].goals += ps.goals || 0;
+      agg[id].fieldSecs += ps.fieldSecs || 0;
+      if ((ps.fieldSecs || 0) > 0 || (ps.goals || 0) > 0) agg[id].games++;
+    });
+  });
+  const players = Object.values(agg).filter(p => p.games > 0 || p.goals > 0)
+    .sort((a, b) => b.goals - a.goals || b.fieldSecs - a.fieldSecs);
+
+  const H = PAD + 80 + 16 + 86 + 16 + 34 + players.length * ROW_H + PAD + 30 + PAD;
+  const canvas = document.createElement('canvas');
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+  ctx.fillStyle = IC.bg; ctx.fillRect(0, 0, W, H);
+
+  let y = PAD;
+
+  // Header
+  ctx.textAlign = 'center';
+  ctx.fillStyle = IC.accent; ctx.font = `bold 30px ${IF}`;
+  ctx.fillText(seasonData.teamName || 'Strikers', W/2, y+34);
+  ctx.fillStyle = IC.muted; ctx.font = `15px ${IF}`;
+  ctx.fillText(`Season Stats · ${seasonData.games.length} game${seasonData.games.length!==1?'s':''}`, W/2, y+62);
+  y += 80 + 16;
+
+  // Record card
+  icRR(ctx, PAD, y, W-PAD*2, 86, 12, IC.card, IC.border);
+  const cw = (W-PAD*2)/3;
+  [[IC.green,wins,'Won'],[IC.muted,draws,'Drawn'],[IC.red,losses,'Lost']].forEach(([col,val,lbl],i) => {
+    const cx = PAD + cw*i + cw/2;
+    ctx.fillStyle = col; ctx.font = `bold 30px ${IF}`; ctx.textAlign = 'center';
+    ctx.fillText(val, cx, y+44);
+    ctx.fillStyle = IC.muted; ctx.font = `13px ${IF}`;
+    ctx.fillText(lbl, cx, y+66);
+  });
+  ctx.fillStyle = IC.muted; ctx.font = `12px ${IF}`; ctx.textAlign = 'right';
+  ctx.fillText(`GF ${gf}  GA ${ga}`, W-PAD-12, y+18);
+  y += 86 + 16;
+
+  // Table header
+  const pc = [{l:'PLAYER',x:PAD+10,a:'left'},{l:'⚽',x:W-PAD-180,a:'center'},{l:'FIELD',x:W-PAD-96,a:'center'},{l:'GP',x:W-PAD-16,a:'right'}];
+  ctx.fillStyle = IC.muted; ctx.font = `bold 11px ${IF}`;
+  pc.forEach(c => { ctx.textAlign = c.a; ctx.fillText(c.l, c.x, y+20); });
+  icLine(ctx, PAD, W-PAD, y+28);
+  y += 34;
+
+  // Rows
+  players.forEach((p, i) => {
+    const ry = y + i*ROW_H, my = ry + ROW_H/2 + 7;
+    if (i%2===1) { ctx.fillStyle='rgba(30,41,59,0.6)'; ctx.fillRect(PAD, ry, W-PAD*2, ROW_H); }
+    ctx.fillStyle = IC.muted; ctx.font = `12px ${IF}`; ctx.textAlign = 'right';
+    ctx.fillText(i+1, PAD+22, my);
+    ctx.fillStyle = IC.text; ctx.font = `bold 17px ${IF}`; ctx.textAlign = 'left';
+    ctx.fillText(p.name, PAD+30, my);
+    ctx.fillStyle = p.goals>0 ? IC.green : IC.muted; ctx.font = `bold 17px ${IF}`; ctx.textAlign = 'center';
+    ctx.fillText(p.goals||'—', W-PAD-180, my);
+    ctx.fillStyle = IC.text;
+    ctx.fillText(fmtMins(p.fieldSecs||0), W-PAD-96, my);
+    ctx.fillStyle = IC.muted; ctx.textAlign = 'right';
+    ctx.fillText(p.games, W-PAD-16, my);
+  });
+  y += players.length * ROW_H + PAD;
+
+  // Watermark
+  ctx.fillStyle = IC.muted; ctx.font = `12px ${IF}`; ctx.textAlign = 'center';
+  ctx.fillText('Strikers Sub Manager', W/2, y+14);
+
+  icShare(canvas, 'season-stats.png');
+  showNotification('Generating image…');
+}
+
+function shareMatchStatsImage() {
+  if (viewingGameIdx < 0) return;
+  const g = seasonData.games[viewingGameIdx];
+  if (!g) return;
+  const W = 750, PAD = 32, DPR = 2, ROW_H = 46;
+
+  const teamName = g.teamName || seasonData.teamName || 'Strikers';
+  const oppName = g.opponent || 'Opponent';
+  const players = g.playerStats
+    ? Object.values(g.playerStats).filter(p=>p).sort((a,b)=>(b.fieldSecs||0)-(a.fieldSecs||0))
+    : [];
+  const awards = [];
+  if (g.potm) awards.push({icon:'🏆', name:g.potm, label:'Player of the Match'});
+  (g.vouchers||[]).forEach(v => awards.push({icon:'🎟', name:v, label:'Voucher'}));
+  const subs = g.subEvents || [];
+
+  const awardsH = awards.length ? 36 + awards.length*44 : 0;
+  const tableH = 36 + players.length*ROW_H;
+  const subsH = subs.length ? 36 + subs.length*40 : 0;
+  const H = PAD + 80 + 16 + 70 + (awardsH?16+awardsH:0) + 16 + tableH + (subsH?16+subsH:0) + PAD + 30 + PAD;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W*DPR; canvas.height = H*DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+  ctx.fillStyle = IC.bg; ctx.fillRect(0,0,W,H);
+
+  let y = PAD;
+  const winCol = g.result.team > g.result.opp ? IC.green : g.result.team < g.result.opp ? IC.red : IC.muted;
+
+  // Header
+  ctx.textAlign = 'center';
+  ctx.fillStyle = IC.text; ctx.font = `bold 26px ${IF}`;
+  ctx.fillText(`${teamName} vs ${oppName}`, W/2, y+32);
+  ctx.fillStyle = IC.muted; ctx.font = `14px ${IF}`;
+  const locStr = g.location==='away' ? 'Away' : 'Home';
+  ctx.fillText(`${g.date||''} · ${locStr}`, W/2, y+60);
+  y += 80 + 16;
+
+  // Score
+  icRR(ctx, PAD, y, W-PAD*2, 70, 12, IC.card, IC.border);
+  ctx.fillStyle = winCol; ctx.font = `bold 42px ${IF}`; ctx.textAlign = 'center';
+  ctx.fillText(`${g.result.team}`, W/2-70, y+46);
+  ctx.fillStyle = IC.muted; ctx.font = `bold 24px ${IF}`;
+  ctx.fillText('—', W/2, y+44);
+  ctx.fillStyle = IC.text; ctx.font = `bold 42px ${IF}`;
+  ctx.fillText(`${g.result.opp}`, W/2+70, y+46);
+  y += 70 + 16;
+
+  // Awards
+  if (awardsH) {
+    icRR(ctx, PAD, y, W-PAD*2, awardsH, 12, IC.card, IC.border);
+    ctx.fillStyle = IC.yellow; ctx.font = `bold 11px ${IF}`; ctx.textAlign = 'left';
+    ctx.fillText('AWARDS', PAD+14, y+22);
+    awards.forEach((aw, i) => {
+      const ay = y+36+i*44;
+      ctx.font = `20px ${IF}`; ctx.fillStyle = IC.text; ctx.textAlign = 'left';
+      ctx.fillText(aw.icon, PAD+14, ay+22);
+      ctx.fillStyle = IC.text; ctx.font = `bold 16px ${IF}`;
+      ctx.fillText(aw.name, PAD+46, ay+16);
+      ctx.fillStyle = IC.muted; ctx.font = `12px ${IF}`;
+      ctx.fillText(aw.label, PAD+46, ay+34);
+    });
+    y += awardsH + 16;
+  }
+
+  // Player table
+  icRR(ctx, PAD, y, W-PAD*2, tableH, 12, IC.card, IC.border);
+  const hc = [{l:'PLAYER',x:PAD+14,a:'left'},{l:'⚽',x:W-PAD-200,a:'center'},{l:'FIELD',x:W-PAD-130,a:'center'},{l:'BENCH',x:W-PAD-62,a:'center'},{l:'🥅',x:W-PAD-14,a:'right'}];
+  ctx.fillStyle = IC.muted; ctx.font = `bold 11px ${IF}`;
+  hc.forEach(c => { ctx.textAlign = c.a; ctx.fillText(c.l, c.x, y+22); });
+  icLine(ctx, PAD+10, W-PAD-10, y+30);
+  const gd = g.gameDuration || 0;
+  players.forEach((p, i) => {
+    const ry = y+36+i*ROW_H, my = ry+ROW_H/2+6;
+    if (i%2===1) { ctx.fillStyle='rgba(255,255,255,0.03)'; ctx.fillRect(PAD, ry, W-PAD*2, ROW_H); }
+    ctx.fillStyle = IC.text; ctx.font = `bold 16px ${IF}`; ctx.textAlign = 'left';
+    ctx.fillText(p.name, PAD+14, my);
+    ctx.fillStyle = (p.goals||0)>0 ? IC.green : IC.muted; ctx.font = `bold 16px ${IF}`; ctx.textAlign = 'center';
+    ctx.fillText(p.goals||0, W-PAD-200, my);
+    ctx.fillStyle = IC.text;
+    ctx.fillText(formatTime(p.fieldSecs||0), W-PAD-130, my);
+    ctx.fillStyle = IC.muted;
+    ctx.fillText(gd>0 ? formatTime(Math.max(0,gd-(p.fieldSecs||0))) : '—', W-PAD-62, my);
+    ctx.fillStyle = p.keeperSecs>0 ? IC.accent : IC.muted; ctx.textAlign = 'right';
+    ctx.fillText(p.keeperSecs>0 ? formatTime(p.keeperSecs) : '—', W-PAD-14, my);
+  });
+  y += tableH + 16;
+
+  // Subs
+  if (subsH) {
+    icRR(ctx, PAD, y, W-PAD*2, subsH, 12, IC.card, IC.border);
+    ctx.fillStyle = IC.muted; ctx.font = `bold 11px ${IF}`; ctx.textAlign = 'left';
+    ctx.fillText('SUBSTITUTIONS', PAD+14, y+22);
+    subs.forEach((ev, i) => {
+      const sy = y+36+i*40;
+      const mins = Math.floor(ev.elapsedSecs/60), secs = ev.elapsedSecs%60;
+      const tStr = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+      ctx.fillStyle = IC.muted; ctx.font = `13px ${IF}`; ctx.textAlign = 'left';
+      ctx.fillText(tStr, PAD+14, sy+18);
+      ctx.fillStyle = IC.green; ctx.font = `bold 13px ${IF}`;
+      ctx.fillText('▲ '+ev.inNames.join(', '), PAD+70, sy+18);
+      ctx.fillStyle = IC.red;
+      ctx.fillText('▼ '+ev.outNames.join(', '), PAD+70, sy+34);
+    });
+    y += subsH + 16;
+  }
+
+  // Watermark
+  ctx.fillStyle = IC.muted; ctx.font = `12px ${IF}`; ctx.textAlign = 'center';
+  ctx.fillText('Strikers Sub Manager', W/2, y+14);
+
+  icShare(canvas, `match-${(g.date||'game').replace(/\//g,'-')}.png`);
+  showNotification('Generating image…');
+}
+
 // ===== CLOUD SYNC =====
 const SYNC_DB = 'https://sub-manager-a258a-default-rtdb.asia-southeast1.firebasedatabase.app';
 
@@ -4705,7 +4949,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v32';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v33';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
