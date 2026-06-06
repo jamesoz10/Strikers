@@ -3504,7 +3504,7 @@ function icShare(canvas, filename) {
 
 function shareSeasonStatsImage() {
   if (!seasonData.games.length) { showNotification('No season data yet'); return; }
-  const W = 750, PAD = 32, DPR = 2, ROW_H = 48;
+  const W = 750, PAD = 32, DPR = 2, ROW_H = 48, GH_ROW = 44;
 
   let wins = 0, losses = 0, draws = 0, gf = 0, ga = 0;
   seasonData.games.forEach(g => {
@@ -3526,7 +3526,11 @@ function shareSeasonStatsImage() {
   const players = Object.values(agg).filter(p => p.games > 0 || p.goals > 0)
     .sort((a, b) => b.goals - a.goals || b.fieldSecs - a.fieldSecs);
 
-  const H = PAD + 80 + 16 + 86 + 16 + 34 + players.length * ROW_H + PAD + 30 + PAD;
+  const parseDate = s => { const p=(s||'').split('/'); return p.length===3 ? new Date(`20${p[2]}`,p[1]-1,p[0]).getTime() : 0; };
+  const history = [...seasonData.games].sort((a,b) => parseDate(b.date)-parseDate(a.date));
+
+  const historyH = 24 + 20 + history.length * GH_ROW;
+  const H = PAD + 80 + 16 + 86 + 16 + 34 + players.length*ROW_H + PAD + historyH + PAD + 30 + PAD;
   const canvas = document.createElement('canvas');
   canvas.width = W * DPR; canvas.height = H * DPR;
   const ctx = canvas.getContext('2d');
@@ -3557,14 +3561,14 @@ function shareSeasonStatsImage() {
   ctx.fillText(`GF ${gf}  GA ${ga}`, W-PAD-12, y+18);
   y += 86 + 16;
 
-  // Table header
+  // Player stats table header
   const pc = [{l:'PLAYER',x:PAD+10,a:'left'},{l:'⚽',x:W-PAD-180,a:'center'},{l:'FIELD',x:W-PAD-96,a:'center'},{l:'GP',x:W-PAD-16,a:'right'}];
   ctx.fillStyle = IC.muted; ctx.font = `bold 11px ${IF}`;
   pc.forEach(c => { ctx.textAlign = c.a; ctx.fillText(c.l, c.x, y+20); });
   icLine(ctx, PAD, W-PAD, y+28);
   y += 34;
 
-  // Rows
+  // Player rows
   players.forEach((p, i) => {
     const ry = y + i*ROW_H, my = ry + ROW_H/2 + 7;
     if (i%2===1) { ctx.fillStyle='rgba(30,41,59,0.6)'; ctx.fillRect(PAD, ry, W-PAD*2, ROW_H); }
@@ -3580,6 +3584,31 @@ function shareSeasonStatsImage() {
     ctx.fillText(p.games, W-PAD-16, my);
   });
   y += players.length * ROW_H + PAD;
+
+  // Game history section
+  ctx.fillStyle = IC.muted; ctx.font = `bold 11px ${IF}`; ctx.textAlign = 'left';
+  ctx.fillText('GAME HISTORY', PAD, y+16);
+  icLine(ctx, PAD, W-PAD, y+24);
+  y += 44;
+
+  history.forEach((g, i) => {
+    const ry = y + i*GH_ROW, my = ry + GH_ROW/2 + 6;
+    if (i%2===1) { ctx.fillStyle='rgba(30,41,59,0.6)'; ctx.fillRect(PAD, ry, W-PAD*2, GH_ROW); }
+    // Date
+    ctx.fillStyle = IC.muted; ctx.font = `13px ${IF}`; ctx.textAlign = 'left';
+    ctx.fillText(g.date || '', PAD+10, my);
+    // Opponent + location
+    ctx.fillStyle = IC.text; ctx.font = `bold 16px ${IF}`;
+    const locEmoji = g.location === 'away' ? ' ✈' : ' 🏠';
+    const potmMark = g.potm ? ' 🏆' : '';
+    ctx.fillText((g.opponent || 'Opponent') + locEmoji + potmMark, PAD + 120, my);
+    // Score
+    const t = g.result?.team ?? 0, o = g.result?.opp ?? 0;
+    const scoreCol = t > o ? IC.green : t < o ? IC.red : IC.muted;
+    ctx.fillStyle = scoreCol; ctx.font = `bold 18px ${IF}`; ctx.textAlign = 'right';
+    ctx.fillText(`${t}–${o}`, W-PAD-10, my);
+  });
+  y += history.length * GH_ROW + PAD;
 
   // Watermark
   ctx.fillStyle = IC.muted; ctx.font = `12px ${IF}`; ctx.textAlign = 'center';
@@ -4949,7 +4978,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v33';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v34';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
