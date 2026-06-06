@@ -3479,6 +3479,13 @@ function regenerateTeamCode() {
   syncUpdateUI();
 }
 
+function syncErrMsg(e) {
+  const s = e && e.message;
+  if (s === '401' || s === '403') return 'Permission denied (HTTP ' + s + ') — update Firebase database rules to allow public read/write';
+  if (s) return 'Error ' + s;
+  return 'Check connection';
+}
+
 async function syncCreateTeam() {
   const code = String(Math.floor(10000 + Math.random() * 90000));
   try {
@@ -3489,13 +3496,13 @@ async function syncCreateTeam() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error(res.status);
+    if (!res.ok) throw new Error(String(res.status));
     state.settings.teamCode = code;
     saveAppState();
     syncUpdateUI();
     showNotification(`✓ Team created — code: ${code}`);
   } catch(e) {
-    showNotification('Failed to create team — check connection');
+    showNotification('Create failed — ' + syncErrMsg(e));
   }
 }
 
@@ -3511,10 +3518,10 @@ async function syncUpload() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error(res.status);
+    if (!res.ok) throw new Error(String(res.status));
     showNotification(`✓ Uploaded — team code: ${code}`);
   } catch(e) {
-    showNotification('Upload failed — check connection');
+    showNotification('Upload failed — ' + syncErrMsg(e));
   }
 }
 
@@ -3525,7 +3532,7 @@ async function syncDownload() {
   try {
     showNotification('Downloading…');
     const res = await fetch(`${SYNC_DB}/teams/${trimCode}.json`);
-    if (!res.ok) throw new Error(res.status);
+    if (!res.ok) throw new Error(String(res.status));
     const data = await res.json();
     if (!data || !data.games) { showNotification('No data found for that code'); return; }
     const msg = `Download ${data.games.length} game(s) from ${data.teamName || 'that team'}?\n\nThis will REPLACE your current season data.`;
@@ -3539,7 +3546,7 @@ async function syncDownload() {
     showNotification(`✓ Downloaded ${data.games.length} game(s)`);
     renderSeasonStats();
   } catch(e) {
-    showNotification('Download failed — check the code and connection');
+    showNotification('Download failed — ' + syncErrMsg(e));
   }
 }
 
@@ -4684,7 +4691,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v29';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v30';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
