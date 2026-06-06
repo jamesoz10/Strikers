@@ -1273,6 +1273,7 @@
     <button class="settings-action-btn" onclick="generateRandomLineup()">🎲 Generate Random Lineup</button>
     <button class="settings-action-btn" onclick="showHelp()" style="color:#38bdf8;border-color:#38bdf8">❓ Help</button>
     <button class="settings-action-btn" onclick="testAlerts()" style="color:#fb923c;border-color:#fb923c">🔔 Test Audio & Haptics</button>
+    <button class="settings-action-btn" onclick="forceUpdate()" style="color:var(--text-muted);border-color:var(--border)">🔄 Force Update App</button>
 
     <div class="setting-row">
       <div class="setting-label">
@@ -2781,6 +2782,21 @@ function playKeeperChangeSound() {
 }
 
 // ---- Audio & haptic test sequence ----
+async function forceUpdate() {
+  showNotification('Clearing cache and reloading…');
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+  } catch(e) {}
+  setTimeout(() => window.location.reload(true), 400);
+}
+
 function testAlerts() {
   unlockAudio();
   const steps = [
@@ -4553,7 +4569,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v25';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
+  var swCode = "const CACHE = 'strikers-sub-v26';self.addEventListener('install', function(e) {  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }));  self.skipWaiting();});self.addEventListener('activate', function(e) {  e.waitUntil(caches.keys().then(function(keys) {    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));  }));  self.clients.claim();});self.addEventListener('fetch', function(e) {  e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));});";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
