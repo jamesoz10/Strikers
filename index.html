@@ -1651,6 +1651,16 @@
   <div style="padding:6px 16px;font-size:12px;color:var(--text-muted);text-align:center;border-bottom:1px solid var(--border);background:var(--card)">
     U07 Strikers · Caloundra City Soccer Club · 2026 SCCSA Draw
   </div>
+  <div style="display:flex;gap:8px;align-items:center;padding:8px 10px;background:var(--card);border-bottom:2px solid var(--border)">
+    <input type="text" id="fixture-opp-input" placeholder="Today's opponent…" maxlength="30"
+      style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;min-width:0">
+    <button id="fixture-loc-home" onclick="setFixtureLoc('home')"
+      style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:15px;cursor:pointer;touch-action:manipulation;flex-shrink:0">🏠</button>
+    <button id="fixture-loc-away" onclick="setFixtureLoc('away')"
+      style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:15px;cursor:pointer;touch-action:manipulation;flex-shrink:0">✈️</button>
+    <button onclick="applyFixtureToGame()"
+      style="padding:7px 12px;border-radius:8px;border:none;background:var(--green);color:#fff;font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation;flex-shrink:0">Apply</button>
+  </div>
   <div id="fixtures-container" style="flex:1;overflow:hidden;position:relative">
     <div id="fixtures-loading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);z-index:2;gap:12px">
       <div style="font-size:32px">📅</div>
@@ -4618,8 +4628,15 @@ function switchScreen(name) {
   document.getElementById('screen-' + name).classList.add('active');
 }
 
+let fixtureLoc = 'home';
+
 function showFixtures() {
   switchScreen('fixtures');
+  // Sync input fields with current game state
+  const oppEl = document.getElementById('fixture-opp-input');
+  if (oppEl && state.oppName) oppEl.value = state.oppName;
+  fixtureLoc = state.matchLocation || 'home';
+  updateFixtureLocButtons();
   const iframe = document.getElementById('fixtures-iframe');
   const loading = document.getElementById('fixtures-loading');
   const blocked = document.getElementById('fixtures-blocked');
@@ -4650,6 +4667,35 @@ function showFixtures() {
       if (blocked) blocked.style.display = 'flex';
     }
   }, 10000);
+}
+
+function setFixtureLoc(loc) {
+  fixtureLoc = loc;
+  updateFixtureLocButtons();
+}
+
+function updateFixtureLocButtons() {
+  const h = document.getElementById('fixture-loc-home');
+  const a = document.getElementById('fixture-loc-away');
+  if (!h || !a) return;
+  const accent = 'var(--accent)';
+  h.style.background = fixtureLoc === 'home' ? accent : 'var(--bg)';
+  h.style.color = fixtureLoc === 'home' ? '#fff' : 'var(--text)';
+  h.style.borderColor = fixtureLoc === 'home' ? accent : 'var(--border)';
+  a.style.background = fixtureLoc === 'away' ? accent : 'var(--bg)';
+  a.style.color = fixtureLoc === 'away' ? '#fff' : 'var(--text)';
+  a.style.borderColor = fixtureLoc === 'away' ? accent : 'var(--border)';
+}
+
+function applyFixtureToGame() {
+  const opp = (document.getElementById('fixture-opp-input').value || '').trim();
+  if (!opp) { showNotification('Enter opponent name first'); return; }
+  state.oppName = opp;
+  setMatchLocation(fixtureLoc);
+  const oppInput = document.getElementById('opp-name-input');
+  if (oppInput) oppInput.value = opp;
+  saveAppState();
+  showNotification('✓ Opponent & location set for today');
 }
 
 function getCurrentScreen() {
@@ -5174,7 +5220,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v47';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v48';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
