@@ -4549,18 +4549,36 @@ async function loadFixtures() {
   }
 }
 
-async function fixturesFetch(url) {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 15000);
-  try {
-    const r = await fetch(url, { signal: ctrl.signal });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const j = await r.json();
-    if (!j.contents) throw new Error('Empty response');
-    return j.contents;
-  } finally {
-    clearTimeout(t);
+async function fixturesFetch(targetUrl) {
+  const PROXIES = [
+    { wrap: u => 'https://api.allorigins.win/get?url=' + encodeURIComponent(u), fmt: 'json' },
+    { wrap: u => 'https://corsproxy.io/?' + encodeURIComponent(u), fmt: 'text' },
+    { wrap: u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u), fmt: 'text' },
+    { wrap: u => u, fmt: 'text' },
+  ];
+  let lastErr = 'Network error';
+  for (const { wrap, fmt } of PROXIES) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12000);
+    try {
+      const r = await fetch(wrap(targetUrl), { signal: ctrl.signal });
+      clearTimeout(timer);
+      if (!r.ok) { lastErr = 'HTTP ' + r.status; continue; }
+      let html;
+      if (fmt === 'json') {
+        const j = await r.json();
+        html = j.contents;
+      } else {
+        html = await r.text();
+      }
+      if (html && html.length > 100) return html;
+      lastErr = 'Empty response';
+    } catch(e) {
+      clearTimeout(timer);
+      lastErr = e.message || 'fetch failed';
+    }
   }
+  throw new Error(lastErr);
 }
 
 function fixturesGetParams(doc) {
@@ -5192,7 +5210,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v43';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v44';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
