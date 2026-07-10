@@ -1645,30 +1645,16 @@
   <div class="settings-header" style="display:flex;align-items:center;justify-content:space-between;padding:0 8px">
     <button onclick="switchScreen('settings')" style="background:none;border:none;color:var(--text);font-size:22px;cursor:pointer;touch-action:manipulation;padding:8px">←</button>
     <h1 style="margin:0;font-size:18px">📅 Fixtures</h1>
-    <button onclick="window.open('https://fixtures.sccsa.org.au/ladder','_blank')" style="background:none;border:none;color:#38bdf8;font-size:20px;cursor:pointer;touch-action:manipulation;padding:8px" title="Open in browser">↗</button>
+    <button id="fixtures-refresh-btn" onclick="loadFixtures()" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;touch-action:manipulation;padding:8px" title="Refresh">↻</button>
   </div>
-  <div style="padding:8px 16px;font-size:12px;color:var(--text-muted);text-align:center;border-bottom:1px solid var(--border);background:var(--card)">
-    U07 Strikers · Caloundra City Soccer Club · 2026 SCCSA Draw
-  </div>
-  <div id="fixtures-container" style="flex:1;overflow:hidden;position:relative;background:#fff">
-    <div id="fixtures-loading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);z-index:2;gap:12px">
-      <div style="font-size:32px">📅</div>
-      <div style="font-size:14px;color:var(--text-muted)">Loading fixtures…</div>
+  <div id="fixtures-content" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch">
+    <div style="text-align:center;padding:48px 24px;color:var(--text-muted)">
+      <div style="font-size:36px;margin-bottom:12px">📅</div>
+      <div style="font-size:14px">Tap ↻ to load fixtures</div>
     </div>
-    <div id="fixtures-blocked" style="position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);z-index:3;gap:16px;padding:32px;text-align:center">
-      <div style="font-size:40px">🌐</div>
-      <div style="font-size:16px;font-weight:600;color:var(--text)">Open Fixtures in Browser</div>
-      <div style="font-size:13px;color:var(--text-muted);line-height:1.5">The fixtures site can't be embedded here. Tap below to open it in Safari — it will show U07 Strikers fixtures for 2026.</div>
-      <button onclick="window.open('https://fixtures.sccsa.org.au/ladder','_blank')" style="padding:14px 28px;border-radius:12px;border:none;background:#fb923c;color:#fff;font-size:15px;font-weight:700;cursor:pointer;touch-action:manipulation">Open Fixtures ↗</button>
-    </div>
-    <iframe id="fixtures-iframe"
-      src="about:blank"
-      style="width:100%;height:100%;border:none;display:block"
-      title="SCCSA Fixtures">
-    </iframe>
   </div>
   <div class="settings-footer">
-    <button class="footer-btn footer-btn-dark" onclick="window.open('https://fixtures.sccsa.org.au/ladder','_blank')" style="color:#38bdf8">Open in browser ↗</button>
+    <button class="footer-btn footer-btn-dark" onclick="window.open('https://fixtures.sccsa.org.au/ladder','_blank')" style="color:#38bdf8">Open site ↗</button>
     <button class="footer-btn footer-btn-green" onclick="switchScreen('settings')">Done</button>
   </div>
 </div>
@@ -4520,43 +4506,168 @@ function switchScreen(name) {
 
 function showFixtures() {
   switchScreen('fixtures');
-  const iframe = document.getElementById('fixtures-iframe');
-  const loading = document.getElementById('fixtures-loading');
-  const blocked = document.getElementById('fixtures-blocked');
-  if (!iframe) return;
-  // Reset state
-  if (loading) loading.style.display = 'flex';
-  if (blocked) blocked.style.display = 'none';
-  iframe.src = 'about:blank';
-  // Short delay then load the real URL
-  setTimeout(() => {
-    const FIXTURES_URL = 'https://fixtures.sccsa.org.au/ladder';
-    iframe.onload = function() {
-      if (loading) loading.style.display = 'none';
-      // Try to detect if content was blocked (iframe body is empty)
-      try {
-        const doc = iframe.contentDocument || iframe.contentWindow.document;
-        if (!doc || !doc.body || doc.body.innerHTML.trim() === '') {
-          if (blocked) blocked.style.display = 'flex';
+  const el = document.getElementById('fixtures-content');
+  if (el && !el.hasAttribute('data-loaded')) loadFixtures();
+}
+
+async function loadFixtures() {
+  const el = document.getElementById('fixtures-content');
+  if (!el) return;
+  const btn = document.getElementById('fixtures-refresh-btn');
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+  el.removeAttribute('data-loaded');
+
+  el.innerHTML = '<div style="text-align:center;padding:48px 24px;color:var(--text-muted)"><div style="font-size:36px;margin-bottom:12px">⏳</div><div style="font-size:14px">Loading fixtures…</div></div>';
+
+  const PROXY = 'https://api.allorigins.win/get?url=';
+  const BASE = 'https://fixtures.sccsa.org.au/ladder';
+
+  const showFallback = (note) => {
+    el.innerHTML = `<div style="padding:16px"><div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px"><div style="font-weight:600;margin-bottom:8px;color:var(--text)">📅 U07 Strikers · 2026</div><div style="font-size:13px;color:var(--text-muted);line-height:1.6">${note}</div></div><button onclick="window.open('${BASE}','_blank')" style="width:100%;padding:14px;border-radius:12px;border:none;background:#fb923c;color:#fff;font-size:15px;font-weight:700;cursor:pointer;touch-action:manipulation">Open Fixtures in Browser ↗</button><div style="text-align:center;margin-top:12px;font-size:11px;color:var(--text-muted)">Select: Division → U07 · Club → Caloundra · Team → U07 Strikers · Year → 2026</div></div>`;
+  };
+
+  try {
+    const html1 = await fixturesFetch(PROXY + encodeURIComponent(BASE));
+    const doc1 = new DOMParser().parseFromString(html1, 'text/html');
+    const params = fixturesGetParams(doc1);
+    const qs = new URLSearchParams(params).toString();
+    const filteredUrl = BASE + (qs ? '?' + qs : '');
+
+    const html2 = await fixturesFetch(PROXY + encodeURIComponent(filteredUrl));
+    const doc2 = new DOMParser().parseFromString(html2, 'text/html');
+
+    const rounds = fixturesExtract(doc2);
+    if (rounds.length > 0) {
+      fixturesRenderRounds(el, rounds);
+    } else {
+      showFallback('Tap the button below to view the draw on the SCCSA website.');
+    }
+  } catch(e) {
+    showFallback('Couldn\'t load — ' + (e.message || 'network error') + '. Tap below to open in Safari.');
+  } finally {
+    if (btn) { btn.textContent = '↻'; btn.disabled = false; }
+  }
+}
+
+async function fixturesFetch(url) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const r = await fetch(url, { signal: ctrl.signal });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    if (!j.contents) throw new Error('Empty response');
+    return j.contents;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+function fixturesGetParams(doc) {
+  const params = {};
+  const RULES = [
+    { pat: /divis|grade|draw|comp/i, want: /u.?07/i },
+    { pat: /club|org|assoc/i, want: /caloundra/i },
+    { pat: /team/i, want: /strikers/i },
+    { pat: /year|season/i, want: /2026/ },
+  ];
+  for (const sel of doc.querySelectorAll('select')) {
+    const key = ((sel.name || '') + ' ' + (sel.id || '')).toLowerCase();
+    for (const { pat, want } of RULES) {
+      if (pat.test(key)) {
+        const opt = Array.from(sel.options).find(o => want.test(o.text) || want.test(o.value));
+        if (opt && sel.name) params[sel.name] = opt.value;
+        break;
+      }
+    }
+  }
+  for (const inp of doc.querySelectorAll('input[type=hidden]')) {
+    if (inp.name && inp.value !== undefined) params[inp.name] = inp.value;
+  }
+  return params;
+}
+
+function fixturesExtract(doc) {
+  const rounds = [];
+  let cur = null;
+
+  // Strategy 1: scan tables
+  for (const table of doc.querySelectorAll('table')) {
+    if (!/strikers|caloundra|round|week/i.test(table.textContent)) continue;
+    for (const tr of table.querySelectorAll('tr')) {
+      const cells = Array.from(tr.querySelectorAll('th,td')).map(c => c.textContent.replace(/\s+/g,' ').trim());
+      const joined = cells.join(' ');
+      if (/round\s*\d+|week\s*\d+|rd\.?\s*\d+/i.test(joined) && cells.length <= 3) {
+        cur = { label: joined.trim(), matches: [] };
+        rounds.push(cur);
+      } else if (cells.length >= 2 && /\bvs?\.?\b/i.test(joined) && joined.length > 5) {
+        if (!cur) { cur = { label: '', matches: [] }; rounds.push(cur); }
+        if (!cur.matches.find(m => m.text === joined)) cur.matches.push({ text: joined, cells });
+      }
+    }
+    if (rounds.length > 0) break;
+  }
+
+  // Strategy 2: walk DOM for round headings + match text
+  if (rounds.length === 0) {
+    const walk = (node) => {
+      for (const child of node.children || []) {
+        const t = child.textContent.replace(/\s+/g,' ').trim();
+        if (!t || t.length > 300) { walk(child); continue; }
+        if (/^(round|week|rd\.?)\s*\d+/i.test(t) && t.length < 60) {
+          cur = { label: t, matches: [] };
+          rounds.push(cur);
+        } else if (cur && /\bvs?\.?\b/i.test(t) && t.length > 5 && !child.querySelector('select,input,button')) {
+          if (!cur.matches.find(m => m.text === t)) cur.matches.push({ text: t });
         }
-      } catch(e) {
-        // Cross-origin: can't access doc, but content likely loaded fine
-        if (loading) loading.style.display = 'none';
+        walk(child);
       }
     };
-    iframe.onerror = function() {
-      if (loading) loading.style.display = 'none';
-      if (blocked) blocked.style.display = 'flex';
-    };
-    iframe.src = FIXTURES_URL;
-    // Fallback: if iframe doesn't load within 8s, show the open-in-browser UI
-    setTimeout(() => {
-      if (loading && loading.style.display !== 'none') {
-        loading.style.display = 'none';
-        if (blocked) blocked.style.display = 'flex';
+    walk(doc.body || doc);
+  }
+
+  return rounds.filter(r => r.matches.length > 0);
+}
+
+function fixturesRenderRounds(el, rounds) {
+  const BASE = 'https://fixtures.sccsa.org.au/ladder';
+  let html = '<div style="padding:12px 12px 24px">';
+  html += '<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:4px 0 12px;letter-spacing:0.5px">U07 STRIKERS · CALOUNDRA CITY SC · 2026</div>';
+
+  for (const round of rounds) {
+    if (round.label) {
+      html += `<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);padding:12px 4px 6px">${fixtEsc(round.label)}</div>`;
+    }
+    for (const m of round.matches) {
+      if (m.cells && m.cells.length >= 2) {
+        html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px">';
+        const ne = m.cells.filter(c => c);
+        ne.forEach((c, i) => {
+          if (/^\d{1,2}:\d{2}|^\d{1,2}(am|pm)/i.test(c)) {
+            html += `<div style="font-size:12px;color:var(--text-muted);margin-top:4px">🕐 ${fixtEsc(c)}</div>`;
+          } else if (/^vs?\.?$/i.test(c)) {
+            html += `<span style="font-size:12px;color:var(--text-muted)"> vs </span>`;
+          } else if (i === 0 || /^vs?\.?$/i.test(ne[i-1] || '')) {
+            html += `<span style="font-size:14px;font-weight:600;color:var(--text)">${fixtEsc(c)}</span>`;
+          } else {
+            html += `<div style="font-size:12px;color:var(--text-muted);margin-top:2px">📍 ${fixtEsc(c)}</div>`;
+          }
+        });
+        html += '</div>';
+      } else {
+        html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;font-size:13px;color:var(--text);line-height:1.5">${fixtEsc(m.text)}</div>`;
       }
-    }, 8000);
-  }, 100);
+    }
+  }
+
+  html += `<div style="text-align:center;margin-top:4px"><button onclick="window.open('${BASE}','_blank')" style="background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;touch-action:manipulation;padding:8px">View on website ↗</button></div>`;
+  html += '</div>';
+  el.setAttribute('data-loaded', '1');
+  el.innerHTML = html;
+}
+
+function fixtEsc(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 function getCurrentScreen() {
@@ -5081,7 +5192,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v42';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v43';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
