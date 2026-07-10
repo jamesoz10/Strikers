@@ -1269,6 +1269,7 @@
     </div>
 
     <button class="settings-action-btn" onclick="showSeasonStats()" style="color:#a78bfa;border-color:#a78bfa">📊 Season Stats</button>
+    <button class="settings-action-btn" onclick="showAwards()" style="color:#f59e0b;border-color:#f59e0b">🏆 Awards</button>
     <button class="settings-action-btn" onclick="saveGameToSeason()" style="color:var(--green);border-color:var(--green)">💾 Save Game to Season</button>
     <button class="settings-action-btn" onclick="showKeeperRotation()" style="color:var(--accent);border-color:var(--accent)">🧤 Keeper Rotation</button>
     <button class="settings-action-btn" onclick="generateRandomLineup()">🎲 Generate Random Lineup</button>
@@ -1666,6 +1667,18 @@
   <div class="settings-footer">
     <button class="footer-btn footer-btn-dark" onclick="window.open('https://fixtures.sccsa.org.au/ladder','_blank')" style="color:#38bdf8">Open in browser ↗</button>
     <button class="footer-btn footer-btn-green" onclick="switchScreen('settings')">Done</button>
+  </div>
+</div>
+
+<!-- ========== AWARDS SCREEN ========== -->
+<div id="screen-awards" class="screen">
+  <div class="settings-header">
+    <button onclick="switchScreen('settings')" style="background:none;border:none;color:var(--text);font-size:22px;cursor:pointer;touch-action:manipulation">←</button>
+    <h1>🏆 Awards</h1>
+  </div>
+  <div class="settings-body" style="padding:0;overflow-y:auto" id="awards-content"></div>
+  <div class="settings-footer">
+    <button class="footer-btn footer-btn-green" style="grid-column:1/-1" onclick="switchScreen('settings')">Done</button>
   </div>
 </div>
 
@@ -3409,6 +3422,97 @@ function toggleHelp(btn) {
   }
 }
 
+// ===== AWARDS =====
+function showAwards() {
+  switchScreen('awards');
+  renderAwards();
+}
+
+function renderAwards() {
+  const el = document.getElementById('awards-content');
+  if (!el) return;
+
+  // Aggregate awards across all saved games
+  const data = {};
+  const ensure = name => { if (name && !data[name]) data[name] = { potm: 0, vouchers: 0 }; };
+
+  // Seed with current roster
+  state.players.forEach(p => ensure(p.name));
+
+  // Tally from game history
+  seasonData.games.forEach(g => {
+    if (g.playerStats) Object.values(g.playerStats).forEach(ps => ps && ensure(ps.name));
+    if (g.potm) {
+      ensure(g.potm);
+      data[g.potm].potm++;
+      data[g.potm].vouchers++; // POTM also receives a voucher
+    }
+    (g.vouchers || []).forEach(name => { ensure(name); data[name].vouchers++; });
+  });
+
+  const players = Object.entries(data).sort((a, b) => {
+    const diff = (b[1].potm * 10 + b[1].vouchers) - (a[1].potm * 10 + a[1].vouchers);
+    return diff !== 0 ? diff : a[0].localeCompare(b[0]);
+  });
+
+  if (players.length === 0) {
+    el.innerHTML = '<div style="text-align:center;padding:48px 24px;color:var(--text-muted);font-size:14px">No players yet. Add players and save games to see awards.</div>';
+    return;
+  }
+
+  const gamesPlayed = seasonData.games.length;
+  const totalPotm = players.reduce((s, [, d]) => s + d.potm, 0);
+  const totalVouchers = players.reduce((s, [, d]) => s + d.vouchers, 0);
+
+  let html = '';
+
+  // Summary bar
+  html += `<div style="display:flex;gap:0;border-bottom:1px solid var(--border)">
+    <div style="flex:1;padding:14px 0;text-align:center;border-right:1px solid var(--border)">
+      <div style="font-size:22px;font-weight:800;color:var(--text)">${gamesPlayed}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Games</div>
+    </div>
+    <div style="flex:1;padding:14px 0;text-align:center;border-right:1px solid var(--border)">
+      <div style="font-size:22px;font-weight:800;color:#f59e0b">${totalPotm}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:2px">🏆 Awarded</div>
+    </div>
+    <div style="flex:1;padding:14px 0;text-align:center">
+      <div style="font-size:22px;font-weight:800;color:#38bdf8">${totalVouchers}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:2px">🎟 Vouchers</div>
+    </div>
+  </div>`;
+
+  // Column headers
+  html += `<div style="display:flex;align-items:center;padding:8px 16px;border-bottom:1px solid var(--border);background:var(--card)">
+    <div style="flex:1;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted)">Player</div>
+    <div style="width:64px;text-align:center;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted)">🏆</div>
+    <div style="width:64px;text-align:center;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted)">🎟</div>
+  </div>`;
+
+  // Player rows
+  players.forEach(([name, { potm, vouchers }], i) => {
+    const isTop = potm > 0 && i === 0;
+    html += `<div style="display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border);${isTop ? 'background:rgba(245,158,11,0.06)' : ''}">
+      <div style="flex:1">
+        <span style="font-size:15px;font-weight:600;color:var(--text)">${name}</span>
+        ${isTop ? '<span style="font-size:12px;color:#f59e0b;margin-left:6px">★ Leader</span>' : ''}
+      </div>
+      <div style="width:64px;text-align:center">
+        ${potm > 0
+          ? `<span style="display:inline-block;min-width:28px;padding:3px 8px;border-radius:20px;background:#f59e0b22;color:#f59e0b;font-size:15px;font-weight:700">${potm}</span>`
+          : `<span style="color:var(--text-muted);font-size:14px">—</span>`}
+      </div>
+      <div style="width:64px;text-align:center">
+        ${vouchers > 0
+          ? `<span style="display:inline-block;min-width:28px;padding:3px 8px;border-radius:20px;background:#38bdf822;color:#38bdf8;font-size:15px;font-weight:700">${vouchers}</span>`
+          : `<span style="color:var(--text-muted);font-size:14px">—</span>`}
+      </div>
+    </div>`;
+  });
+
+  el.innerHTML = html;
+}
+
 function showSeasonStats() {
   renderSeasonStats();
   switchScreen('stats');
@@ -5070,7 +5174,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v46';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v47';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
