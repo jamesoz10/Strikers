@@ -1651,32 +1651,9 @@
   <div style="padding:6px 16px;font-size:12px;color:var(--text-muted);text-align:center;border-bottom:1px solid var(--border);background:var(--card)">
     U07 Strikers · Caloundra City Soccer Club · 2026 SCCSA Draw
   </div>
-  <div style="display:flex;gap:8px;align-items:center;padding:8px 10px;background:var(--card);border-bottom:2px solid var(--border)">
-    <input type="text" id="fixture-opp-input" placeholder="Today's opponent…" maxlength="30"
-      style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;min-width:0">
-    <button id="fixture-loc-home" onclick="setFixtureLoc('home')"
-      style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:15px;cursor:pointer;touch-action:manipulation;flex-shrink:0">🏠</button>
-    <button id="fixture-loc-away" onclick="setFixtureLoc('away')"
-      style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:15px;cursor:pointer;touch-action:manipulation;flex-shrink:0">✈️</button>
-    <button onclick="applyFixtureToGame()"
-      style="padding:7px 12px;border-radius:8px;border:none;background:var(--green);color:#fff;font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation;flex-shrink:0">Apply</button>
-  </div>
-  <div id="fixtures-container" style="flex:1;overflow:hidden;position:relative">
-    <div id="fixtures-loading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);z-index:2;gap:12px">
-      <div style="font-size:32px">📅</div>
-      <div style="font-size:14px;color:var(--text-muted)">Loading fixtures…</div>
-    </div>
-    <div id="fixtures-blocked" style="position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);z-index:3;gap:16px;padding:32px;text-align:center">
-      <div style="font-size:36px">🌐</div>
-      <div style="font-size:16px;font-weight:600;color:var(--text)">Open Fixtures in Safari</div>
-      <div style="font-size:13px;color:var(--text-muted);line-height:1.5">The fixtures site can't be embedded. Tap below to open it in Safari.</div>
-      <button onclick="window.open('https://fixtures.sccsa.org.au/ladder','_blank')" style="padding:14px 28px;border-radius:12px;border:none;background:#fb923c;color:#fff;font-size:15px;font-weight:700;cursor:pointer;touch-action:manipulation">Open Fixtures ↗</button>
-    </div>
-    <iframe id="fixtures-iframe" src="about:blank" style="width:100%;height:100%;border:none;display:block" title="SCCSA Fixtures"></iframe>
-  </div>
+  <div id="fixtures-list" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
   <div class="settings-footer">
-    <button class="footer-btn footer-btn-dark" onclick="window.open('https://fixtures.sccsa.org.au/ladder','_blank')" style="color:#38bdf8">Open in browser ↗</button>
-    <button class="footer-btn footer-btn-green" onclick="switchScreen('settings')">Done</button>
+    <button class="footer-btn footer-btn-green" style="grid-column:1/-1" onclick="switchScreen('settings')">Done</button>
   </div>
 </div>
 
@@ -4628,74 +4605,120 @@ function switchScreen(name) {
   document.getElementById('screen-' + name).classList.add('active');
 }
 
-let fixtureLoc = 'home';
+const FIXTURES_DATA = [
+  {round:'Carnival',date:'2026-03-07',games:[
+    {opp:'Range Raiders',time:'9:00 AM',venue:'Russell Barker Park',home:true},
+    {opp:'Buddina Snappers',time:'10:00 AM',venue:'Russell Barker Park',home:true},
+    {opp:'Bli Bli Conquerors',time:'11:00 AM',venue:'Russell Barker Park',home:true},
+  ]},
+  {round:'2',date:'2026-03-14',games:[{opp:'Range Raiders',time:'10:20 AM',venue:'Range United, Montville',home:false}]},
+  {round:'3',date:'2026-03-21',games:[{opp:'Currimundi Squids',time:'11:15 AM',venue:'Unity College',home:true}]},
+  {round:'4',date:'2026-03-28',games:[{opp:'Immanuel Rattlesnakes',time:'9:25 AM',venue:'Immanuel Lutheran College',home:false}]},
+  {round:'5',date:'2026-04-18',games:[{opp:'Bli Bli Jousters',time:'12:10 PM',venue:'Russell Barker Park',home:true}]},
+  {round:'6',date:'2026-05-09',games:[{opp:'Chancellor Comets',time:'10:20 AM',venue:'Palmview Sports Complex',home:false}]},
+  {round:'7',date:'2026-05-16',games:[{opp:'Bli Bli Barons',time:'10:20 AM',venue:'Russell Barker Park',home:true}]},
+  {round:'8',date:'2026-05-23',games:[{opp:'Unity Tree Snakes',time:'11:15 AM',venue:'Russell Barker Park',home:true}]},
+  {round:'9',date:'2026-05-30',games:[{opp:'Unity Tiger Snakes',time:'9:25 AM',venue:'Siena Primary School, Sippy Downs',home:false}]},
+  {round:'10',date:'2026-06-06',games:[{opp:'Stella El Ninos',time:'9:25 AM',venue:'Stella Maris School, Maroochydore',home:false}]},
+  {round:'11',date:'2026-06-13',games:[{opp:'Caloundra Dragons',time:'10:20 AM',venue:'Russell Barker Park',home:false}]},
+  {round:'12',date:'2026-06-20',games:[{opp:'Stella Turbulence',time:'11:15 AM',venue:'Russell Barker Park',home:true}]},
+  {round:'13',date:'2026-07-11',games:[{opp:'Chancellor Concords',time:'11:15 AM',venue:'Russell Barker Park',home:true}]},
+  {round:'14',date:'2026-07-18',games:[{opp:'Currimundi Leather Jackets',time:'11:15 AM',venue:'Russell Barker Park',home:true}]},
+  {round:'15',date:'2026-07-25',games:[{opp:'Palmwoods Icelanders',time:'9:25 AM',venue:'Jubilee Park, Palmwoods',home:false}]},
+  {round:'16',date:'2026-08-01',games:[{opp:'Palmwoods Zulus',time:'11:15 AM',venue:'Russell Barker Park',home:true}]},
+  {round:'17',date:'2026-08-08',games:[{opp:'Currimundi Narwhals',time:'1:05 PM',venue:'Unity College',home:true}]},
+  {round:'18',date:'2026-08-15',games:[{opp:'Bli Bli Conquerors',time:'10:20 AM',venue:'Parklakes, Bli Bli',home:false}]},
+];
 
 function showFixtures() {
   switchScreen('fixtures');
-  // Sync input fields with current game state
-  const oppEl = document.getElementById('fixture-opp-input');
-  if (oppEl && state.oppName) oppEl.value = state.oppName;
-  fixtureLoc = state.matchLocation || 'home';
-  updateFixtureLocButtons();
-  const iframe = document.getElementById('fixtures-iframe');
-  const loading = document.getElementById('fixtures-loading');
-  const blocked = document.getElementById('fixtures-blocked');
-  if (!iframe || iframe.src !== 'about:blank') return;
-  if (loading) loading.style.display = 'flex';
-  if (blocked) blocked.style.display = 'none';
-  const FIXTURES_URL = 'https://fixtures.sccsa.org.au/ladder';
-  iframe.onload = function() {
-    if (loading) loading.style.display = 'none';
-    try {
-      const doc = iframe.contentDocument || iframe.contentWindow.document;
-      if (!doc || !doc.body || doc.body.innerHTML.trim() === '') {
-        if (blocked) blocked.style.display = 'flex';
-      }
-    } catch(e) {
-      // Cross-origin — content loaded fine
-      if (loading) loading.style.display = 'none';
-    }
-  };
-  iframe.onerror = function() {
-    if (loading) loading.style.display = 'none';
-    if (blocked) blocked.style.display = 'flex';
-  };
-  iframe.src = FIXTURES_URL;
-  setTimeout(() => {
-    if (loading && loading.style.display !== 'none') {
-      loading.style.display = 'none';
-      if (blocked) blocked.style.display = 'flex';
-    }
-  }, 10000);
+  renderFixtures();
 }
 
-function setFixtureLoc(loc) {
-  fixtureLoc = loc;
-  updateFixtureLocButtons();
+function fixturesDateStr() {
+  const n = new Date();
+  return n.getFullYear() + '-' + String(n.getMonth()+1).padStart(2,'0') + '-' + String(n.getDate()).padStart(2,'0');
 }
 
-function updateFixtureLocButtons() {
-  const h = document.getElementById('fixture-loc-home');
-  const a = document.getElementById('fixture-loc-away');
-  if (!h || !a) return;
-  const accent = 'var(--accent)';
-  h.style.background = fixtureLoc === 'home' ? accent : 'var(--bg)';
-  h.style.color = fixtureLoc === 'home' ? '#fff' : 'var(--text)';
-  h.style.borderColor = fixtureLoc === 'home' ? accent : 'var(--border)';
-  a.style.background = fixtureLoc === 'away' ? accent : 'var(--bg)';
-  a.style.color = fixtureLoc === 'away' ? '#fff' : 'var(--text)';
-  a.style.borderColor = fixtureLoc === 'away' ? accent : 'var(--border)';
+function fixturesFmtDate(d) {
+  const [y,m,day] = d.split('-').map(Number);
+  const dt = new Date(y, m-1, day);
+  const DAY = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return DAY[dt.getDay()] + ' ' + day + ' ' + MON[m-1];
 }
 
-function applyFixtureToGame() {
-  const opp = (document.getElementById('fixture-opp-input').value || '').trim();
-  if (!opp) { showNotification('Enter opponent name first'); return; }
+function applyFixtureGame(opp, home) {
   state.oppName = opp;
-  setMatchLocation(fixtureLoc);
-  const oppInput = document.getElementById('opp-name-input');
-  if (oppInput) oppInput.value = opp;
+  setMatchLocation(home ? 'home' : 'away');
+  const el = document.getElementById('opp-name-input');
+  if (el) el.value = opp;
   saveAppState();
-  showNotification('✓ Opponent & location set for today');
+  showNotification('✓ ' + opp + ' · ' + (home ? 'Home' : 'Away') + ' set');
+  renderFixtures(); // refresh applied state
+}
+
+function renderFixtures() {
+  const el = document.getElementById('fixtures-list');
+  if (!el) return;
+  const today = fixturesDateStr();
+
+  // Find next upcoming round index
+  let nextIdx = -1;
+  for (let i = 0; i < FIXTURES_DATA.length; i++) {
+    if (FIXTURES_DATA[i].date >= today) { nextIdx = i; break; }
+  }
+
+  // Auto-apply today's game if there's exactly one and it hasn't been applied yet
+  if (nextIdx >= 0 && FIXTURES_DATA[nextIdx].date === today) {
+    const todayRound = FIXTURES_DATA[nextIdx];
+    if (todayRound.games.length === 1 && state.oppName !== todayRound.games[0].opp) {
+      applyFixtureGame(todayRound.games[0].opp, todayRound.games[0].home);
+    }
+  }
+
+  let html = '<div style="padding:12px 12px 32px">';
+
+  FIXTURES_DATA.forEach((round, ri) => {
+    const isPast = round.date < today;
+    const isNext = ri === nextIdx;
+    const isToday = round.date === today;
+
+    const label = round.round === 'Carnival' ? 'Carnival' : 'Round ' + round.round;
+    const dateLabel = fixturesFmtDate(round.date);
+
+    html += `<div style="margin-bottom:${isNext ? 16 : 10}px">`;
+
+    // Round header
+    html += `<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${isNext ? 'var(--accent)' : isPast ? 'var(--text-muted)' : 'var(--text-muted)'};padding:${ri === 0 ? 0 : 12}px 4px 6px;display:flex;align-items:center;gap:8px">
+      <span>${label} · ${dateLabel}</span>
+      ${isToday ? '<span style="background:var(--accent);color:#fff;font-size:10px;padding:2px 7px;border-radius:20px">TODAY</span>' : ''}
+      ${isNext && !isToday ? '<span style="background:#334155;color:var(--accent);font-size:10px;padding:2px 7px;border-radius:20px">NEXT</span>' : ''}
+    </div>`;
+
+    round.games.forEach(g => {
+      const isApplied = state.oppName === g.opp && state.matchLocation === (g.home ? 'home' : 'away');
+      const cardBg = isApplied ? 'background:rgba(34,197,94,0.08);border-color:#22c55e' : isPast ? 'opacity:0.5' : '';
+      html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:6px;${cardBg}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:15px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">vs ${g.opp}</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${g.time} · ${g.venue}</div>
+            <div style="font-size:12px;margin-top:3px">${g.home ? '🏠 Home' : '✈️ Away'}</div>
+          </div>
+          ${!isPast ? `<button onclick="applyFixtureGame('${g.opp.replace(/'/g,"\\'")}',${g.home})"
+            style="flex-shrink:0;padding:8px 14px;border-radius:8px;border:none;background:${isApplied ? '#22c55e' : 'var(--accent)'};color:#fff;font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation">
+            ${isApplied ? '✓ Set' : 'Apply'}
+          </button>` : ''}
+        </div>
+      </div>`;
+    });
+
+    html += '</div>';
+  });
+
+  html += '</div>';
+  el.innerHTML = html;
 }
 
 function getCurrentScreen() {
@@ -5220,7 +5243,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v48';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v49';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
