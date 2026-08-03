@@ -1823,7 +1823,9 @@
 <div id="edit-game-modal" class="modal-overlay">
   <div class="modal">
     <h2>Edit Game</h2>
-    <div style="text-align:center;color:var(--text-muted);font-size:13px;margin-bottom:16px" id="edit-game-info"></div>
+    <div style="text-align:center;margin-bottom:16px">
+      <input id="edit-game-info" type="text" placeholder="DD/MM/YY" style="text-align:center;font-size:13px;color:var(--text-muted);background:transparent;border:none;border-bottom:1px solid var(--border);width:100px;padding:2px 4px;outline:none">
+    </div>
     <div class="modal-section">
       <div class="modal-label">Team Name</div>
       <input type="text" id="edit-team-name" maxlength="30" style="width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:15px;margin-bottom:8px">
@@ -4119,7 +4121,7 @@ function showEditGameModal(idx) {
   if (g.playerStats) {
     Object.entries(g.playerStats).forEach(([id, ps]) => { editPlayerGoalsMap[id] = (ps && ps.goals) || 0; });
   }
-  document.getElementById('edit-game-info').textContent = g.date;
+  document.getElementById('edit-game-info').value = g.date;
   document.getElementById('edit-team-name').value = g.teamName || seasonData.teamName || 'Strikers';
   document.getElementById('edit-opp-name').value = g.opponent || '';
   document.getElementById('edit-team-score').textContent = editGameResult.team;
@@ -4245,6 +4247,8 @@ function saveEditedGame() {
   if (editingGameIdx < 0) return;
   const teamName = document.getElementById('edit-team-name').value.trim() || seasonData.teamName || 'Strikers';
   const oppName = document.getElementById('edit-opp-name').value.trim() || 'Opponent';
+  const editedDate = document.getElementById('edit-game-info').value.trim();
+  if (editedDate) seasonData.games[editingGameIdx].date = editedDate;
   seasonData.games[editingGameIdx].result = { ...editGameResult };
   seasonData.games[editingGameIdx].teamName = teamName;
   seasonData.games[editingGameIdx].opponent = oppName;
@@ -5248,7 +5252,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v51';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v52';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
