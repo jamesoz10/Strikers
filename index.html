@@ -1924,6 +1924,7 @@ let state = {
   gameTimerRunning: false,
   gameTimerSecs: 0,
   currentHalf: 1,  // 1 or 2
+  extraTimeSecs: -1, // -1 = not in extra time; >=0 = counting up after FT
   playerTimers: {}, // id -> seconds on field this game
   playerKeeperTimers: {}, // id -> seconds as keeper this game
   playerGoals: {}, // id -> goals scored this game
@@ -2929,7 +2930,8 @@ function toggleGameTimer() {
     }
     state.gameTimerRunning = true;
     if (hasBench()) state.subTimerRunning = true;
-    if (state.gameTimerSecs <= 0) {
+    // Only reset to full half length when starting fresh, not resuming after FT extra time
+    if (state.gameTimerSecs <= 0 && state.extraTimeSecs < 0) {
       state.gameTimerSecs = state.settings.halfLength * 60;
     }
     document.getElementById('game-timer-btn').classList.add('running');
@@ -3032,6 +3034,7 @@ function tickKeeperTimer() {
 }
 
 function stopAllTimers() {
+  const wasInExtraTime = state.extraTimeSecs >= 0;
   clearInterval(gameInterval); gameInterval = null;
   clearInterval(subInterval); subInterval = null;
   clearInterval(keeperTimerInterval); keeperTimerInterval = null;
@@ -3039,30 +3042,45 @@ function stopAllTimers() {
   state.gameTimerRunning = false;
   state.subTimerRunning = false;
   state.keeperRotation.timerRunning = false;
+  state.extraTimeSecs = -1;
   document.getElementById('game-timer-btn').classList.remove('running');
   document.getElementById('game-timer-btn').querySelector('span:last-child').textContent = '▶';
-  document.getElementById('sub-timer-btn').classList.remove('running');
-  document.getElementById('sub-timer-btn').querySelector('span:last-child').textContent = '▶';
+  const subBtn = document.getElementById('sub-timer-btn');
+  if (subBtn) { subBtn.classList.remove('running'); subBtn.querySelector('span:last-child').textContent = '▶'; }
+  if (wasInExtraTime) {
+    document.getElementById('game-timer-display').textContent = 'FT';
+    saveGameToSeason();
+  }
 }
 
 function tickGameTimer() {
   if (state.injuryPause) return;
+
+  // Extra time mode — count up after FT whistle
+  if (state.extraTimeSecs >= 0) {
+    state.extraTimeSecs++;
+    if (state.extraTimeSecs >= 300) { // 5-minute cap
+      stopAllTimers();
+    }
+    updateGameTimerDisplay();
+    return;
+  }
+
   state.gameTimerSecs--;
   if (state.gameTimerSecs <= 0) {
     state.gameTimerSecs = 0;
-    stopAllTimers();
     playSubAlertSound();
     if (state.currentHalf === 1) {
-      // Half time
+      // Half time — stop and show modal
+      stopAllTimers();
       document.getElementById('halftime-score-display').textContent =
         `${state.score.team} – ${state.score.opp}`;
       document.getElementById('halftime-modal').classList.add('show');
       showNotification('⏸ Half time!');
     } else {
-      // Full time
-      showNotification('⏱ Full time!');
-      document.getElementById('game-timer-display').textContent = 'FT';
-      saveGameToSeason();
+      // Full time — whistle but keep running for up to 5 min
+      showNotification('⏱ Full time! Tap ⏸ to finish.');
+      state.extraTimeSecs = 0;
     }
   }
   updateGameTimerDisplay();
@@ -3070,7 +3088,9 @@ function tickGameTimer() {
 
 function updateGameTimerDisplay() {
   const el = document.getElementById('game-timer-display');
-  if (state.gameTimerSecs === 0 && state.currentHalf === 2 && !state.gameTimerRunning) {
+  if (state.extraTimeSecs >= 0) {
+    el.textContent = '+' + formatTime(state.extraTimeSecs);
+  } else if (state.gameTimerSecs === 0 && state.currentHalf === 2 && !state.gameTimerRunning) {
     el.textContent = 'FT';
   } else {
     el.textContent = formatTime(state.gameTimerSecs);
@@ -5272,7 +5292,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v54';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v55';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
