@@ -2431,6 +2431,17 @@ function renderGame() {
     return p && p.inGame && idx >= fieldSlots;
   });
 
+  // Show/hide sub controls based on whether there's a bench
+  const noSubs = benchIds.length === 0;
+  const subTimerBtn = document.getElementById('sub-timer-btn');
+  const swapBtn = document.getElementById('swap-btn');
+  if (subTimerBtn) subTimerBtn.style.display = noSubs ? 'none' : '';
+  if (swapBtn) swapBtn.style.display = noSubs ? 'none' : '';
+  if (noSubs && state.subTimerRunning) {
+    state.subTimerRunning = false;
+    if (subTimerBtn) { subTimerBtn.classList.remove('running'); subTimerBtn.querySelector('span:last-child').textContent = '▶'; }
+  }
+
   // Next off = first N non-keeper on-field players; next in = first N bench players
   const n = state.settings.subsPerChange;
   const nonKeeperOnField = onFieldIds.filter(id => {
@@ -2586,6 +2597,14 @@ function isOnField(p, fieldCount) {
     ? state.settings.fieldPlayers + 1
     : state.settings.fieldPlayers + 1;
   return idx !== -1 && idx < slots;
+}
+
+function hasBench() {
+  const slots = state.settings.fieldPlayers + 1;
+  return state.order.some((id, idx) => {
+    const p = getPlayer(id);
+    return p && p.inGame && idx >= slots;
+  });
 }
 
 function getPlayer(id) {
@@ -2909,7 +2928,7 @@ function toggleGameTimer() {
       return;
     }
     state.gameTimerRunning = true;
-    state.subTimerRunning = true;
+    if (hasBench()) state.subTimerRunning = true;
     if (state.gameTimerSecs <= 0) {
       state.gameTimerSecs = state.settings.halfLength * 60;
     }
@@ -2952,6 +2971,7 @@ function toggleSubTimer() {
 function tickSubTimer() {
   if (state.injuryPause) return;
   if (state.settings.manualSub) return;
+  if (!hasBench()) return;
   state.subTimerSecs--;
 
   if (state.subTimerSecs === 30) {
@@ -5252,7 +5272,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v53';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v54';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
