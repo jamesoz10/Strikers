@@ -2393,8 +2393,35 @@ function confirmKeeperChange() {
   renderGame();
   renderKeeperQueue();
 }
+function patchPalmwoodsGame() {
+  // One-time patch: fill times for the manually entered Palmwoods Zulus game
+  const g = seasonData.games.find(g =>
+    g.opponent === 'Palmwoods Zulus' &&
+    g.playerStats &&
+    Object.values(g.playerStats).every(p => !p.fieldSecs)
+  );
+  if (!g) return;
+  g.gameDuration = 2400; // 40 minutes
+  const times = {
+    1: { fieldSecs: 1920, keeperSecs: 0 },   // Matejo  32:00
+    2: { fieldSecs: 2160, keeperSecs: 600 },  // Arlo    36:00 / 10:00 keeper
+    3: { fieldSecs: 0,    keeperSecs: 0 },    // Finley  didn't play
+    4: { fieldSecs: 1920, keeperSecs: 0 },    // Benji   32:00
+    5: { fieldSecs: 1920, keeperSecs: 0 },    // Fletcher 32:00
+    6: { fieldSecs: 2160, keeperSecs: 600 },  // Finlay  36:00 / 10:00 keeper
+    7: { fieldSecs: 2160, keeperSecs: 600 },  // Zak     36:00 / 10:00 keeper
+    8: { fieldSecs: 0,    keeperSecs: 0 },    // Harry   didn't play
+    9: { fieldSecs: 2160, keeperSecs: 600 },  // Miko    36:00 / 10:00 keeper
+  };
+  Object.entries(times).forEach(([id, t]) => {
+    if (g.playerStats[id]) { g.playerStats[id].fieldSecs = t.fieldSecs; g.playerStats[id].keeperSecs = t.keeperSecs; }
+  });
+  saveSeasonData();
+}
+
 function init() {
   loadSeasonData();
+  patchPalmwoodsGame();
   loadAppState();
   state.teamName = state.teamName || seasonData.teamName || 'Strikers';
   // oppName intentionally not carried over — it's per-game
@@ -5403,7 +5430,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v57';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v58';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
