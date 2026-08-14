@@ -1864,6 +1864,16 @@
       <div class="modal-label">🎟 Vouchers (up to 4 other players)</div>
       <div class="award-chips" id="edit-voucher-chips"></div>
     </div>
+    <div class="modal-section">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div class="modal-label" style="margin-bottom:0">⏱ Player Times</div>
+        <button onclick="fillApproxTimes()" style="font-size:12px;padding:4px 12px;border-radius:16px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;font-weight:600">⚡ Fill Approx</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 68px 68px;gap:4px;padding-bottom:4px;font-size:11px;color:var(--text-muted);font-weight:600;letter-spacing:.5px">
+        <div></div><div style="text-align:center">FIELD</div><div style="text-align:center">KEEPER</div>
+      </div>
+      <div id="edit-player-times-list"></div>
+    </div>
     <button class="modal-ok" onclick="saveEditedGame()">Save</button>
     <button class="confirm-cancel-btn" style="width:100%;margin-top:8px;color:var(--red)" onclick="deleteGameFromModal()">🗑 Delete This Game</button>
     <button class="confirm-cancel-btn" style="width:100%;margin-top:8px" onclick="closeEditGameModal()">Cancel</button>
@@ -4156,6 +4166,20 @@ let editGameLocation = 'home';
 let editGamePotm = '';
 let editGameVouchers = [];
 let editPlayerGoalsMap = {}; // { id: count }
+let editPlayerTimesMap = {}; // { id: {fieldSecs, keeperSecs} }
+
+function secsToMMSS(secs) {
+  if (!secs || secs <= 0) return '00:00';
+  const m = Math.floor(secs / 60);
+  const s = Math.round(secs % 60);
+  return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+}
+function mmssToSecs(str) {
+  if (!str || !String(str).trim()) return 0;
+  const parts = String(str).trim().split(':');
+  if (parts.length === 2) return (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0);
+  return (parseInt(parts[0]) || 0) * 60;
+}
 
 function showEditGameModal(idx) {
   editingGameIdx = idx;
@@ -4165,8 +4189,12 @@ function showEditGameModal(idx) {
   editGamePotm = g.potm || '';
   editGameVouchers = g.vouchers ? [...g.vouchers] : [];
   editPlayerGoalsMap = {};
+  editPlayerTimesMap = {};
   if (g.playerStats) {
-    Object.entries(g.playerStats).forEach(([id, ps]) => { editPlayerGoalsMap[id] = (ps && ps.goals) || 0; });
+    Object.entries(g.playerStats).forEach(([id, ps]) => {
+      editPlayerGoalsMap[id] = (ps && ps.goals) || 0;
+      editPlayerTimesMap[Number(id)] = { fieldSecs: ps.fieldSecs || 0, keeperSecs: ps.keeperSecs || 0 };
+    });
   }
   document.getElementById('edit-game-info').value = g.date;
   document.getElementById('edit-team-name').value = g.teamName || seasonData.teamName || 'Strikers';
@@ -4176,6 +4204,7 @@ function showEditGameModal(idx) {
   updateEditLocationButtons();
   renderEditPlayerGoalsList();
   renderEditAwardChips();
+  renderEditPlayerTimesList();
   document.getElementById('edit-game-modal').classList.add('show');
 }
 
@@ -4303,13 +4332,88 @@ function saveEditedGame() {
   seasonData.games[editingGameIdx].potm = editGamePotm;
   seasonData.games[editingGameIdx].vouchers = [...editGameVouchers];
   const ps = seasonData.games[editingGameIdx].playerStats;
-  if (ps) Object.keys(editPlayerGoalsMap).forEach(id => { if (ps[id]) ps[id].goals = editPlayerGoalsMap[id] || 0; });
+  if (ps) {
+    Object.keys(editPlayerGoalsMap).forEach(id => { if (ps[id]) ps[id].goals = editPlayerGoalsMap[id] || 0; });
+    Object.entries(editPlayerTimesMap).forEach(([id, t]) => {
+      if (ps[id]) { ps[id].fieldSecs = t.fieldSecs || 0; ps[id].keeperSecs = t.keeperSecs || 0; }
+    });
+  }
+  // If game was manually entered with no duration, set it from settings
+  if (!seasonData.games[editingGameIdx].gameDuration) {
+    seasonData.games[editingGameIdx].gameDuration = state.settings.halfLength * 2 * 60;
+  }
   saveSeasonData();
   const fromMatchStats = viewingGameIdx === editingGameIdx;
   closeEditGameModal();
   if (fromMatchStats) showMatchStats(viewingGameIdx);
   renderSeasonStats();
   showNotification('✓ Game updated');
+}
+
+function renderEditPlayerTimesList() {
+  const container = document.getElementById('edit-player-times-list');
+  if (!container) return;
+  const g = seasonData.games[editingGameIdx];
+  if (!g || !g.playerStats) { container.innerHTML = ''; return; }
+  const players = Object.entries(g.playerStats)
+    .map(([id, ps]) => ({ id: Number(id), name: ps.name, number: ps.number }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  container.innerHTML = '';
+  players.forEach(({ id, name, number }) => {
+    const t = editPlayerTimesMap[id] || { fieldSecs: 0, keeperSecs: 0 };
+    const row = document.createElement('div');
+    row.style.cssText = 'display:grid;grid-template-columns:1fr 68px 68px;gap:4px;align-items:center;padding:5px 0;border-top:1px solid var(--border)';
+    const nameEl = document.createElement('div');
+    nameEl.style.cssText = 'font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+    nameEl.textContent = (number ? `#${number} ` : '') + name;
+    const mkInput = (val, placeholder, onchange) => {
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.value = val; inp.placeholder = placeholder;
+      inp.style.cssText = 'width:100%;text-align:center;font-size:13px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:5px 2px;color:var(--text);font-family:monospace;box-sizing:border-box';
+      inp.addEventListener('blur', onchange);
+      return inp;
+    };
+    const fieldInp = mkInput(secsToMMSS(t.fieldSecs), '00:00', () => {
+      if (!editPlayerTimesMap[id]) editPlayerTimesMap[id] = {};
+      editPlayerTimesMap[id].fieldSecs = mmssToSecs(fieldInp.value);
+    });
+    const keeperInp = mkInput(t.keeperSecs > 0 ? secsToMMSS(t.keeperSecs) : '', '—', () => {
+      if (!editPlayerTimesMap[id]) editPlayerTimesMap[id] = {};
+      editPlayerTimesMap[id].keeperSecs = keeperInp.value.trim() ? mmssToSecs(keeperInp.value) : 0;
+    });
+    row.append(nameEl, fieldInp, keeperInp);
+    container.appendChild(row);
+  });
+}
+
+function fillApproxTimes() {
+  const g = seasonData.games[editingGameIdx];
+  if (!g || !g.playerStats) return;
+  const gameSecs = (g.gameDuration > 0 ? g.gameDuration : state.settings.halfLength * 2 * 60);
+  const fieldSlots = state.settings.fieldPlayers + 1;
+  const playerIds = Object.keys(g.playerStats).map(Number);
+  const numPlayers = playerIds.length;
+  if (!numPlayers) return;
+  const benchAtOnce = Math.max(0, numPlayers - fieldSlots);
+  const totalBenchSecs = gameSecs * benchAtOnce;
+  // Read existing keeper times from current edit state
+  const keeperSecs = {};
+  playerIds.forEach(id => { keeperSecs[id] = editPlayerTimesMap[id]?.keeperSecs || 0; });
+  if (benchAtOnce === 0) {
+    // Full game for everyone, no bench
+    playerIds.forEach(id => { editPlayerTimesMap[id] = { fieldSecs: gameSecs, keeperSecs: keeperSecs[id] }; });
+  } else {
+    // Distribute bench time proportional to time NOT in goal
+    const avail = {};
+    let totalAvail = 0;
+    playerIds.forEach(id => { avail[id] = Math.max(0, gameSecs - keeperSecs[id]); totalAvail += avail[id]; });
+    playerIds.forEach(id => {
+      const bench = totalAvail > 0 ? Math.round((avail[id] / totalAvail) * totalBenchSecs) : 0;
+      editPlayerTimesMap[id] = { fieldSecs: Math.max(0, gameSecs - bench), keeperSecs: keeperSecs[id] };
+    });
+  }
+  renderEditPlayerTimesList();
+  showNotification('✓ Approx times filled — adjust keeper times first, then tap again');
 }
 
 function deleteGameFromModal() {
@@ -5299,7 +5403,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v56';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v57';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
