@@ -1988,6 +1988,8 @@ let state = {
       { opp:'Currimundi Squids',       home:true,  keepers:[3,2]  }, // Finley/Arlo
       { opp:'Nambour Snow Leopards',   home:false, keepers:[1,5]  }, // Matejo/Fletcher
     ],
+    timerSnaps: [],  // playerTimers snapshot at end of each game
+    keeperSnaps: [], // playerKeeperTimers snapshot at end of each game
   },
   // Keeper rotation
   keeperRotation: {
@@ -3180,6 +3182,9 @@ function tickGameTimer() {
         const cv = state.carnival;
         cv.scores.push({ ...state.score });
         cv.subEventsByGame.push([...(state.subEvents || [])]);
+        // Snapshot timers at end of this game for per-game delta calculation
+        cv.timerSnaps.push({...state.playerTimers});
+        cv.keeperSnaps.push({...state.playerKeeperTimers});
         stopAllTimers();
         showCarnivalNextModal();
       } else {
@@ -3255,6 +3260,9 @@ function startCarnival() {
   // Disable keeper rotation timer for carnival
   state.keeperRotation.timerRunning = false;
   clearInterval(keeperTimerInterval); keeperTimerInterval = null;
+  // Snapshot timers at start (before any field time accumulates)
+  cv.timerSnaps = [{...state.playerTimers}];
+  cv.keeperSnaps = [{...state.playerKeeperTimers}];
   renderScoreDisplay();
   updateGameTimerDisplay();
   updateSubTimerDisplay();
@@ -3330,22 +3338,26 @@ function endCarnival() {
   const cv = state.carnival;
   // Save final game's goals
   cv.goalsByGame.push({ ...state.playerGoals });
-  // Build playerStats from accumulated timers
-  const playerStats = {};
-  state.players.forEach(p => {
-    playerStats[p.id] = {
-      name: p.name, number: p.number || null,
-      goals: 0,
-      fieldSecs: state.playerTimers[p.id] || 0,
-      keeperSecs: state.playerKeeperTimers[p.id] || 0,
-    };
-  });
-  // Save one game record per match in seasonData
+  // Snapshot timers at end of final game
+  cv.timerSnaps.push({...state.playerTimers});
+  cv.keeperSnaps.push({...state.playerKeeperTimers});
+  // Save one game record per match using per-game timer deltas
+  // timerSnaps[i] = state at start of game i, timerSnaps[i+1] = state at end of game i
   cv.scores.forEach((sc, i) => {
     const goals = cv.goalsByGame[i] || {};
+    const snapBefore = cv.timerSnaps[i]   || {};
+    const snapAfter  = cv.timerSnaps[i+1] || {};
+    const kBefore    = cv.keeperSnaps[i]  || {};
+    const kAfter     = cv.keeperSnaps[i+1] || {};
     const ps = {};
     state.players.forEach(p => {
-      ps[p.id] = { ...playerStats[p.id], goals: goals[p.id] || 0 };
+      ps[p.id] = {
+        name: p.name,
+        number: p.number || null,
+        goals: goals[p.id] || 0,
+        fieldSecs:  Math.max(0, (snapAfter[p.id]  || 0) - (snapBefore[p.id]  || 0)),
+        keeperSecs: Math.max(0, (kAfter[p.id]     || 0) - (kBefore[p.id]     || 0)),
+      };
     });
     seasonData.games.push({
       date: new Date().toLocaleDateString('en-AU',{day:'2-digit',month:'2-digit',year:'2-digit'}),
@@ -5660,7 +5672,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v60';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v61';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
