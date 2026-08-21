@@ -1230,6 +1230,11 @@
 
       <div id="game-right-spacer" style="flex:1"></div>
 
+      <!-- Carnival banner -->
+      <div id="carnival-banner" style="display:none;background:linear-gradient(90deg,#7c3aed,#2563eb);color:#fff;padding:8px 16px;text-align:center;font-size:13px;font-weight:700;letter-spacing:.5px;flex-shrink:0">
+        <span id="carnival-banner-text"></span>
+      </div>
+
       <div class="bottom-bar">
         <button class="timer-btn" id="sub-timer-btn" onclick="toggleSubTimer()">
           <span class="timer-value" id="sub-timer-display">04:00</span>
@@ -1652,8 +1657,9 @@
     U07 Strikers · Caloundra City Soccer Club · 2026 SCCSA Draw
   </div>
   <div id="fixtures-list" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
-  <div class="settings-footer">
-    <button class="footer-btn footer-btn-green" style="grid-column:1/-1" onclick="switchScreen('settings')">Done</button>
+  <div class="settings-footer" style="display:flex;gap:8px;padding:8px 16px">
+    <button class="footer-btn footer-btn-green" style="flex:1" onclick="switchScreen('settings')">Done</button>
+    <button id="carnival-start-btn" onclick="startCarnival()" style="flex:1;padding:12px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer">🏆 Carnival</button>
   </div>
 </div>
 
@@ -1688,9 +1694,33 @@
     <div style="font-size:48px;margin-bottom:8px">⏸</div>
     <div class="confirm-sub-title" style="color:#f59e0b">Half Time!</div>
     <div id="halftime-score-display" style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:800;color:#f1f5f9;margin:12px 0"></div>
-    <div style="font-size:14px;color:#888;margin-bottom:24px">Get ready for the second half</div>
+    <div style="font-size:14px;color:#888;margin-bottom:8px">Get ready for the second half</div>
+    <div id="halftime-carnival-keeper" style="display:none;font-size:15px;color:#a78bfa;font-weight:700;margin-bottom:16px"></div>
     <button class="confirm-ok-btn" style="width:100%;background:#22c55e;margin-bottom:10px" onclick="startSecondHalf()">▶ Start 2nd Half</button>
     <button class="confirm-cancel-btn" style="width:100%" onclick="document.getElementById('halftime-modal').classList.remove('show')">Stay at Half Time</button>
+  </div>
+</div>
+
+<!-- ========== CARNIVAL NEXT GAME MODAL ========== -->
+<div id="carnival-next-modal" class="modal-overlay">
+  <div class="confirm-sub-box" style="text-align:center">
+    <div style="font-size:40px;margin-bottom:4px">🏆</div>
+    <div class="confirm-sub-title" id="carnival-next-title" style="color:#f59e0b"></div>
+    <div id="carnival-next-score" style="font-family:'Barlow Condensed',sans-serif;font-size:40px;font-weight:800;color:#f1f5f9;margin:10px 0"></div>
+    <div id="carnival-next-info" style="font-size:14px;color:#94a3b8;margin-bottom:6px"></div>
+    <div id="carnival-next-keeper" style="font-size:14px;color:#a78bfa;font-weight:700;margin-bottom:20px"></div>
+    <button class="confirm-ok-btn" style="width:100%;background:#7c3aed;margin-bottom:10px" onclick="carnivalNextGame()">▶ <span id="carnival-next-btn-label">Start Game 2</span></button>
+    <button class="confirm-cancel-btn" style="width:100%" onclick="document.getElementById('carnival-next-modal').classList.remove('show')">Wait</button>
+  </div>
+</div>
+
+<!-- ========== CARNIVAL END MODAL ========== -->
+<div id="carnival-end-modal" class="modal-overlay">
+  <div class="confirm-sub-box" style="text-align:center">
+    <div style="font-size:40px;margin-bottom:4px">🎉</div>
+    <div class="confirm-sub-title" style="color:#22c55e">Carnival Done!</div>
+    <div id="carnival-end-scores" style="font-size:14px;color:#94a3b8;margin:12px 0;line-height:1.8"></div>
+    <button class="confirm-ok-btn" style="width:100%;background:#22c55e;margin-bottom:10px" onclick="endCarnival()">💾 Save All & Finish</button>
   </div>
 </div>
 
@@ -1946,6 +1976,19 @@ let state = {
   nextPlayerId: 10,
   prevScreen: 'game',
   dragMode: false,
+  // Carnival mode
+  carnival: {
+    active: false,
+    gameIdx: 0,
+    scores: [],       // [{team,opp}] one per completed game
+    subEventsByGame: [],
+    goalsByGame: [],  // [{playerId: goals}] per game
+    games: [
+      { opp:'Bli Bli Barons',         home:false, keepers:[4,9]  }, // Benji/Miko
+      { opp:'Currimundi Squids',       home:true,  keepers:[3,2]  }, // Finley/Arlo
+      { opp:'Nambour Snow Leopards',   home:false, keepers:[1,5]  }, // Matejo/Fletcher
+    ],
+  },
   // Keeper rotation
   keeperRotation: {
     enabled: true,
@@ -3119,12 +3162,31 @@ function tickGameTimer() {
       stopAllTimers();
       document.getElementById('halftime-score-display').textContent =
         `${state.score.team} – ${state.score.opp}`;
+      // Carnival: show 2nd-half keeper name
+      const htKeeperEl = document.getElementById('halftime-carnival-keeper');
+      if (state.carnival.active) {
+        const cv = state.carnival;
+        const k2id = cv.games[cv.gameIdx].keepers[1];
+        htKeeperEl.textContent = '🥅 2nd half keeper: ' + (getPlayer(k2id)?.name || '?');
+        htKeeperEl.style.display = '';
+      } else { htKeeperEl.style.display = 'none'; }
       document.getElementById('halftime-modal').classList.add('show');
       showNotification('⏸ Half time!');
     } else {
-      // Full time — whistle but keep running for up to 5 min
-      showNotification('⏱ Full time! Tap ⏸ to finish.');
-      state.extraTimeSecs = 0;
+      // Full time
+      if (state.carnival.active) {
+        // Carnival: save this game's score and show transition
+        playSubAlertSound();
+        const cv = state.carnival;
+        cv.scores.push({ ...state.score });
+        cv.subEventsByGame.push([...(state.subEvents || [])]);
+        stopAllTimers();
+        showCarnivalNextModal();
+      } else {
+        // Normal: whistle but keep running for up to 5 min
+        showNotification('⏱ Full time! Tap ⏸ to finish.');
+        state.extraTimeSecs = 0;
+      }
     }
   }
   updateGameTimerDisplay();
@@ -3144,10 +3206,178 @@ function updateGameTimerDisplay() {
   if (halfEl) halfEl.textContent = state.currentHalf === 1 ? '1st Half' : '2nd Half';
 }
 
+// ===== CARNIVAL MODE =====
+function setCarnivalKeeper(id) {
+  state.players.forEach(p => p.isKeeper = false);
+  const p = getPlayer(id);
+  if (p) { p.isKeeper = true; p.inGame = true; }
+  const idx = state.order.indexOf(id);
+  if (idx > 0) { state.order.splice(idx, 1); state.order.unshift(id); }
+  else if (idx < 0) { state.order.unshift(id); }
+  renderGame();
+}
+
+function renderCarnivalBanner() {
+  const banner = document.getElementById('carnival-banner');
+  const text   = document.getElementById('carnival-banner-text');
+  if (!state.carnival.active) { banner.style.display = 'none'; return; }
+  const cv = state.carnival;
+  const g  = cv.games[cv.gameIdx];
+  const keeperId = g.keepers[state.currentHalf - 1];
+  const keeperName = getPlayer(keeperId)?.name || '?';
+  banner.style.display = '';
+  text.textContent = `🏆 Carnival · Game ${cv.gameIdx+1} of 3  ·  ${g.opp}  ·  🥅 ${keeperName}`;
+}
+
+function startCarnival() {
+  const cv = state.carnival;
+  cv.active = true;
+  cv.gameIdx = 0;
+  cv.scores = [];
+  cv.subEventsByGame = [];
+  cv.goalsByGame = [];
+  // Reset game state for Game 1
+  state.score = { team: 0, opp: 0 };
+  state.currentHalf = 1;
+  state.gameTimerSecs = 14 * 60;
+  state.subTimerSecs  = state.settings.subInterval * 60;
+  state.subEvents = [];
+  state.playerGoals = {};
+  state.players.forEach(p => { state.playerGoals[p.id] = 0; });
+  // Set all players inGame (except Harry id=8)
+  state.players.forEach(p => { p.inGame = p.id !== 8; });
+  state.order = state.players.filter(p => p.inGame).map(p => p.id);
+  // Set keeper for Game 1, Half 1
+  setCarnivalKeeper(cv.games[0].keepers[0]);
+  // Set opponent + location
+  state.oppName = cv.games[0].opp;
+  setMatchLocation(cv.games[0].home ? 'home' : 'away');
+  // Disable keeper rotation timer for carnival
+  state.keeperRotation.timerRunning = false;
+  clearInterval(keeperTimerInterval); keeperTimerInterval = null;
+  renderScoreDisplay();
+  updateGameTimerDisplay();
+  updateSubTimerDisplay();
+  renderCarnivalBanner();
+  switchScreen('game');
+  showNotification('🏆 Carnival started · Game 1 vs ' + cv.games[0].opp);
+}
+
+function carnivalHalftimeContent() {
+  // Called from halftime modal to show carnival-specific keeper info
+  const cv = state.carnival;
+  if (!cv.active) return '';
+  const g = cv.games[cv.gameIdx];
+  const nextKeeperId = g.keepers[1]; // 2nd half keeper
+  const name = getPlayer(nextKeeperId)?.name || '?';
+  return `<div style="font-size:15px;color:#a78bfa;font-weight:700;margin:-8px 0 16px">🥅 2nd half keeper: ${name}</div>`;
+}
+
+function showCarnivalNextModal() {
+  const cv = state.carnival;
+  const justFinished = cv.gameIdx;
+  const g = cv.games[justFinished];
+  const sc = state.score;
+  document.getElementById('carnival-next-title').textContent = `Game ${justFinished+1} done!`;
+  document.getElementById('carnival-next-score').textContent = `${sc.team} – ${sc.opp}`;
+  if (justFinished < 2) {
+    const next = cv.games[justFinished + 1];
+    const nextKeeper = getPlayer(next.keepers[0])?.name || '?';
+    document.getElementById('carnival-next-info').textContent =
+      `Next: ${next.opp} · ${next.home ? 'Home 🏠' : 'Away ✈️'}`;
+    document.getElementById('carnival-next-keeper').textContent =
+      `🥅 1st half keeper: ${nextKeeper}`;
+    document.getElementById('carnival-next-btn-label').textContent = `Start Game ${justFinished+2}`;
+    document.getElementById('carnival-next-modal').classList.add('show');
+  } else {
+    // All 3 done — show end modal
+    const lines = cv.scores.map((s,i) =>
+      `Game ${i+1} vs ${cv.games[i].opp}: ${s.team}–${s.opp}`).join('<br>');
+    document.getElementById('carnival-end-scores').innerHTML = lines;
+    document.getElementById('carnival-end-modal').classList.add('show');
+  }
+}
+
+function carnivalNextGame() {
+  document.getElementById('carnival-next-modal').classList.remove('show');
+  const cv = state.carnival;
+  cv.gameIdx++;
+  const g = cv.games[cv.gameIdx];
+  // Reset score + half but keep player field timers running
+  state.score = { team: 0, opp: 0 };
+  state.currentHalf = 1;
+  state.gameTimerSecs = 14 * 60;
+  state.subTimerSecs  = state.settings.subInterval * 60;
+  state.extraTimeSecs = -1;
+  // Save this game's goals then reset
+  cv.goalsByGame.push({ ...state.playerGoals });
+  state.playerGoals = {};
+  state.players.forEach(p => { state.playerGoals[p.id] = 0; });
+  state.subEvents = [];
+  // Set keeper + opponent for new game
+  setCarnivalKeeper(g.keepers[0]);
+  state.oppName = g.opp;
+  setMatchLocation(g.home ? 'home' : 'away');
+  renderScoreDisplay();
+  updateGameTimerDisplay();
+  updateSubTimerDisplay();
+  renderCarnivalBanner();
+  showNotification(`🏆 Game ${cv.gameIdx+1} · vs ${g.opp}`);
+}
+
+function endCarnival() {
+  document.getElementById('carnival-end-modal').classList.remove('show');
+  const cv = state.carnival;
+  // Save final game's goals
+  cv.goalsByGame.push({ ...state.playerGoals });
+  // Build playerStats from accumulated timers
+  const playerStats = {};
+  state.players.forEach(p => {
+    playerStats[p.id] = {
+      name: p.name, number: p.number || null,
+      goals: 0,
+      fieldSecs: state.playerTimers[p.id] || 0,
+      keeperSecs: state.playerKeeperTimers[p.id] || 0,
+    };
+  });
+  // Save one game record per match in seasonData
+  cv.scores.forEach((sc, i) => {
+    const goals = cv.goalsByGame[i] || {};
+    const ps = {};
+    state.players.forEach(p => {
+      ps[p.id] = { ...playerStats[p.id], goals: goals[p.id] || 0 };
+    });
+    seasonData.games.push({
+      date: new Date().toLocaleDateString('en-AU',{day:'2-digit',month:'2-digit',year:'2-digit'}),
+      opponent: cv.games[i].opp,
+      teamName: state.teamName || 'Strikers',
+      location: cv.games[i].home ? 'home' : 'away',
+      result: sc,
+      gameDuration: 28 * 60,
+      subEvents: cv.subEventsByGame[i] || [],
+      playerStats: ps,
+      carnival: true,
+    });
+  });
+  saveSeasonData();
+  cv.active = false;
+  renderCarnivalBanner();
+  stopAllTimers();
+  renderSeasonStats();
+  showNotification('✓ Carnival saved — ' + cv.scores.length + ' games');
+  switchScreen('season');
+}
+
 function startSecondHalf() {
   document.getElementById('halftime-modal').classList.remove('show');
   state.currentHalf = 2;
-  state.gameTimerSecs = state.settings.halfLength * 60;
+  state.gameTimerSecs = (state.carnival.active ? 14 : state.settings.halfLength) * 60;
+  // Carnival: set 2nd-half keeper
+  if (state.carnival.active) {
+    const cv = state.carnival;
+    setCarnivalKeeper(cv.games[cv.gameIdx].keepers[1]);
+    renderCarnivalBanner();
+  }
   // Reset sub timer for 2nd half
   state.subTimerSecs = state.settings.subInterval * 60;
   // Reset keeper timer and all warnings for 2nd half
@@ -5430,7 +5660,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v58';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v59';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
