@@ -2496,8 +2496,8 @@ function patchCarnivalGame1() {
   };
   const DATA = {
     1: { fieldSecs: 1316, keeperSecs: 720, goals: 0 }, // Matejo   21:56 · 2nd half keeper
-    2: { fieldSecs: 1043, keeperSecs:   0, goals: 1 }, // Arlo     17:23 · 1 goal
-    3: { fieldSecs:  999, keeperSecs:   0, goals: 2 }, // Finley   16:39 · 2 goals
+    2: { fieldSecs: 1043, keeperSecs:   0, goals: 0 }, // Arlo     17:23
+    3: { fieldSecs:  999, keeperSecs:   0, goals: 3 }, // Finley   16:39 · 3 goals (corrected)
     4: { fieldSecs: 1440, keeperSecs: 720, goals: 0 }, // Benji    full game · 1st half keeper
     5: { fieldSecs:  996, keeperSecs:   0, goals: 0 }, // Fletcher 16:36
     6: { fieldSecs: 1326, keeperSecs:   0, goals: 0 }, // Finlay   22:06
@@ -2526,11 +2526,57 @@ function patchCarnivalGame1() {
   saveSeasonData();
 }
 
+function patchCarnivalGame2() {
+  // Ensure Carnival Game 2 (22 Aug 2026 vs Currimundi Squids) is in season data.
+  // Score 2-2. Keepers: Finley 1st half (720s), Arlo 2nd half (720s).
+  // Times from end-of-game screenshot. No goal badges visible — goals left at 0.
+  const PLAYERS = {
+    1:{name:'Matejo',  number:17},
+    2:{name:'Arlo',    number:3},
+    3:{name:'Finley',  number:10},
+    4:{name:'Benji',   number:4},
+    5:{name:'Fletcher',number:11},
+    6:{name:'Finlay',  number:9},
+    7:{name:'Zak',     number:2},
+    8:{name:'Harry',   number:null},
+    9:{name:'Miko',    number:5},
+  };
+  const DATA = {
+    1: { fieldSecs:  853, keeperSecs:   0, goals: 0 }, // Matejo   14:13
+    2: { fieldSecs: 1124, keeperSecs: 720, goals: 0 }, // Arlo     18:44 · 2nd half keeper
+    3: { fieldSecs: 1268, keeperSecs: 720, goals: 0 }, // Finley   21:08 · 1st half keeper
+    4: { fieldSecs:  910, keeperSecs:   0, goals: 0 }, // Benji    15:10
+    5: { fieldSecs: 1142, keeperSecs:   0, goals: 0 }, // Fletcher 19:02
+    6: { fieldSecs:  879, keeperSecs:   0, goals: 0 }, // Finlay   14:39
+    7: { fieldSecs: 1311, keeperSecs:   0, goals: 0 }, // Zak      21:51
+    8: { fieldSecs:    0, keeperSecs:   0, goals: 0 }, // Harry    didn't play
+    9: { fieldSecs: 1135, keeperSecs:   0, goals: 0 }, // Miko     18:55
+  };
+  let g = seasonData.games.find(g => g.carnival && g.opponent === 'Currimundi Squids');
+  if (!g) {
+    const ps = {};
+    Object.entries(PLAYERS).forEach(([id, p]) => { ps[id] = { name:p.name, number:p.number, goals:0, fieldSecs:0, keeperSecs:0 }; });
+    g = { date:'22/08/26', opponent:'Currimundi Squids', teamName:'Strikers', location:'home',
+          result:{team:2,opp:2}, gameDuration:1440, subEvents:[], playerStats:ps, carnival:true };
+    seasonData.games.push(g);
+  }
+  g.result = { team: 2, opp: 2 };
+  g.gameDuration = 1440;
+  Object.entries(DATA).forEach(([id, d]) => {
+    if (!g.playerStats[id]) g.playerStats[id] = { name:PLAYERS[id].name, number:PLAYERS[id].number, goals:0, fieldSecs:0, keeperSecs:0 };
+    g.playerStats[id].fieldSecs  = d.fieldSecs;
+    g.playerStats[id].keeperSecs = d.keeperSecs;
+    g.playerStats[id].goals      = d.goals;
+  });
+  saveSeasonData();
+}
+
 function init() {
   loadSeasonData();
   patchPalmwoodsGame();
   loadAppState();
   patchCarnivalGame1(); // runs after loadAppState so player list is available
+  patchCarnivalGame2();
   state.teamName = state.teamName || seasonData.teamName || 'Strikers';
   // oppName intentionally not carried over — it's per-game
   state.order = state.players.filter(p => p.inGame).map(p => p.id);
@@ -5869,7 +5915,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v67';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v68';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
