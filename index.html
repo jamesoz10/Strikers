@@ -3124,6 +3124,8 @@ function tickKeeperTimer() {
 
 function stopAllTimers() {
   const wasInExtraTime = state.extraTimeSecs >= 0;
+  // Detect manual stop during carnival 2nd half (timer still counting down, not via tickGameTimer path)
+  const carnivalManualStop = state.carnival.active && state.currentHalf === 2 && state.gameTimerRunning;
   clearInterval(gameInterval); gameInterval = null;
   clearInterval(subInterval); subInterval = null;
   clearInterval(keeperTimerInterval); keeperTimerInterval = null;
@@ -3136,7 +3138,16 @@ function stopAllTimers() {
   document.getElementById('game-timer-btn').querySelector('span:last-child').textContent = '▶';
   const subBtn = document.getElementById('sub-timer-btn');
   if (subBtn) { subBtn.classList.remove('running'); subBtn.querySelector('span:last-child').textContent = '▶'; }
-  if (wasInExtraTime) {
+  if (carnivalManualStop) {
+    // Save snapshot and trigger carnival transition
+    const cv = state.carnival;
+    cv.scores.push({ ...state.score });
+    cv.subEventsByGame.push([...(state.subEvents || [])]);
+    cv.timerSnaps.push({...state.playerTimers});
+    cv.keeperSnaps.push({...state.playerKeeperTimers});
+    document.getElementById('game-timer-display').textContent = 'FT';
+    showCarnivalNextModal();
+  } else if (wasInExtraTime) {
     document.getElementById('game-timer-display').textContent = 'FT';
     saveGameToSeason();
   }
@@ -3244,7 +3255,7 @@ function startCarnival() {
   // Reset game state for Game 1
   state.score = { team: 0, opp: 0 };
   state.currentHalf = 1;
-  state.gameTimerSecs = 14 * 60;
+  state.gameTimerSecs = 12 * 60;
   state.subTimerSecs  = state.settings.subInterval * 60;
   state.subEvents = [];
   state.playerGoals = {};
@@ -3314,7 +3325,7 @@ function carnivalNextGame() {
   // Reset score + half but keep player field timers running
   state.score = { team: 0, opp: 0 };
   state.currentHalf = 1;
-  state.gameTimerSecs = 14 * 60;
+  state.gameTimerSecs = 12 * 60;
   state.subTimerSecs  = state.settings.subInterval * 60;
   state.extraTimeSecs = -1;
   // Save this game's goals then reset
@@ -3365,7 +3376,7 @@ function endCarnival() {
       teamName: state.teamName || 'Strikers',
       location: cv.games[i].home ? 'home' : 'away',
       result: sc,
-      gameDuration: 28 * 60,
+      gameDuration: 24 * 60,
       subEvents: cv.subEventsByGame[i] || [],
       playerStats: ps,
       carnival: true,
@@ -3383,7 +3394,7 @@ function endCarnival() {
 function startSecondHalf() {
   document.getElementById('halftime-modal').classList.remove('show');
   state.currentHalf = 2;
-  state.gameTimerSecs = (state.carnival.active ? 14 : state.settings.halfLength) * 60;
+  state.gameTimerSecs = (state.carnival.active ? 12 : state.settings.halfLength) * 60;
   // Carnival: set 2nd-half keeper
   if (state.carnival.active) {
     const cv = state.carnival;
@@ -5672,7 +5683,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v61';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v62';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
