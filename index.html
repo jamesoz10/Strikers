@@ -1724,6 +1724,19 @@
   </div>
 </div>
 
+<!-- ========== CARNIVAL GAME PICKER MODAL ========== -->
+<div id="carnival-picker-modal" class="modal-overlay">
+  <div class="confirm-sub-box" style="text-align:center">
+    <div style="font-size:26px;margin-bottom:4px">🏆</div>
+    <div class="confirm-sub-title">Start Carnival</div>
+    <div style="font-size:13px;color:#94a3b8;margin-bottom:14px">Which game are you starting?</div>
+    <div id="carnival-picker-btns" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div id="carnival-picker-scores" style="display:none;margin-top:14px;text-align:left"></div>
+    <button id="carnival-picker-go" onclick="confirmCarnivalPicker()" style="display:none;width:100%;margin-top:12px;padding:13px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer">▶ Start Game</button>
+    <button onclick="document.getElementById('carnival-picker-modal').classList.remove('show')" style="width:100%;margin-top:8px;padding:11px;background:none;border:1.5px solid #4b5563;border-radius:10px;font-size:14px;color:#94a3b8;cursor:pointer">Cancel</button>
+  </div>
+</div>
+
 <!-- ========== SWITCH KEEPER MODAL ========== -->
 <div id="switch-keeper-modal" class="modal-overlay">
   <div class="confirm-sub-box">
@@ -3245,28 +3258,126 @@ function renderCarnivalBanner() {
   text.textContent = `🏆 Carnival · Game ${cv.gameIdx+1} of 3  ·  ${g.opp}  ·  🥅 ${keeperName}`;
 }
 
+let _carnivalPickerGame = 1; // which game user selected in picker
+
 function handleCarnivalBtn() {
   const cv = state.carnival;
-  // If carnival is already running and games have been played, resume from where we left off
+  // Resume: at least one game already saved
   if (cv.active && cv.scores.length > 0) {
     switchScreen('game');
     if (cv.scores.length >= 3) {
-      // All 3 games done — show save modal
       const lines = cv.scores.map((s,i) =>
         `Game ${i+1} vs ${cv.games[i].opp}: ${s.team}–${s.opp}`).join('<br>');
       document.getElementById('carnival-end-scores').innerHTML = lines;
       document.getElementById('carnival-end-modal').classList.add('show');
     } else {
-      // Between games — show the next-game transition modal
       showCarnivalNextModal();
     }
     return;
   }
-  // Fresh start — confirm if a previous carnival was partly set up
-  if (cv.active && cv.scores.length === 0) {
-    if (!confirm('Start carnival from Game 1? (This will reset the current setup)')) return;
+  // Show game picker so they can jump to game 2 or 3 if needed
+  showCarnivalGamePicker();
+}
+
+function showCarnivalGamePicker() {
+  const cv = state.carnival;
+  const btns = document.getElementById('carnival-picker-btns');
+  btns.innerHTML = cv.games.map((g,i) =>
+    `<button onclick="selectCarnivalPickerGame(${i+1})" style="width:100%;padding:12px;background:var(--card-bg,#1e293b);border:2px solid #4b5563;border-radius:10px;color:#e2e8f0;font-size:14px;font-weight:600;cursor:pointer;text-align:left">
+      <span style="color:#a78bfa;font-weight:700">Game ${i+1}</span> · vs ${g.opp}
+    </button>`
+  ).join('');
+  document.getElementById('carnival-picker-scores').style.display = 'none';
+  document.getElementById('carnival-picker-go').style.display = 'none';
+  _carnivalPickerGame = 1;
+  document.getElementById('carnival-picker-modal').classList.add('show');
+}
+
+function selectCarnivalPickerGame(n) {
+  _carnivalPickerGame = n;
+  const cv = state.carnival;
+  // Highlight selected button
+  document.querySelectorAll('#carnival-picker-btns button').forEach((b,i) => {
+    b.style.borderColor = (i === n-1) ? '#7c3aed' : '#4b5563';
+    b.style.background  = (i === n-1) ? 'rgba(124,58,237,0.15)' : 'var(--card-bg,#1e293b)';
+  });
+  const scoresDiv = document.getElementById('carnival-picker-scores');
+  if (n === 1) {
+    scoresDiv.style.display = 'none';
+  } else {
+    // Show score inputs for all skipped games
+    let html = `<div style="font-size:12px;color:#94a3b8;margin-bottom:8px;font-weight:600">Enter scores for skipped games:</div>`;
+    for (let i = 0; i < n-1; i++) {
+      html += `<div style="margin-bottom:10px">
+        <div style="font-size:13px;color:#a78bfa;font-weight:700;margin-bottom:4px">Game ${i+1} · vs ${cv.games[i].opp}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input id="cpick-team-${i}" type="number" min="0" max="99" value="0" style="width:56px;padding:8px;border-radius:8px;border:1.5px solid #4b5563;background:#0f172a;color:#e2e8f0;font-size:16px;font-weight:700;text-align:center">
+          <span style="color:#94a3b8;font-size:18px;font-weight:700">–</span>
+          <input id="cpick-opp-${i}" type="number" min="0" max="99" value="0" style="width:56px;padding:8px;border-radius:8px;border:1.5px solid #4b5563;background:#0f172a;color:#e2e8f0;font-size:16px;font-weight:700;text-align:center">
+          <span style="font-size:12px;color:#64748b">(us – them)</span>
+        </div>
+      </div>`;
+    }
+    scoresDiv.innerHTML = html;
+    scoresDiv.style.display = 'block';
   }
-  startCarnival();
+  const goBtn = document.getElementById('carnival-picker-go');
+  goBtn.style.display = 'block';
+  goBtn.textContent = `▶ Start Game ${n} · vs ${cv.games[n-1].opp}`;
+}
+
+function confirmCarnivalPicker() {
+  document.getElementById('carnival-picker-modal').classList.remove('show');
+  const n = _carnivalPickerGame;
+  const cv = state.carnival;
+
+  // Full reset
+  cv.active = true;
+  cv.gameIdx = n - 1;
+  cv.scores = [];
+  cv.subEventsByGame = [];
+  cv.goalsByGame = [];
+  // Baseline snapshot (zero for fresh carnival)
+  state.playerTimers = {};
+  state.playerKeeperTimers = {};
+  state.players.forEach(p => { state.playerTimers[p.id] = 0; state.playerKeeperTimers[p.id] = 0; });
+  cv.timerSnaps = [{}];
+  cv.keeperSnaps = [{}];
+
+  // Fill in placeholder scores/snapshots for skipped games
+  for (let i = 0; i < n - 1; i++) {
+    const t = parseInt(document.getElementById(`cpick-team-${i}`)?.value) || 0;
+    const o = parseInt(document.getElementById(`cpick-opp-${i}`)?.value) || 0;
+    cv.scores.push({ team: t, opp: o });
+    cv.subEventsByGame.push([]);
+    cv.goalsByGame.push({});
+    cv.timerSnaps.push({}); // equal snapshot = zero time delta for skipped games
+    cv.keeperSnaps.push({});
+  }
+
+  // Game state for the chosen game
+  state.score = { team: 0, opp: 0 };
+  state.currentHalf = 1;
+  state.gameTimerSecs = 12 * 60;
+  state.subTimerSecs = state.settings.subInterval * 60;
+  state.subEvents = [];
+  state.playerGoals = {};
+  state.players.forEach(p => { state.playerGoals[p.id] = 0; });
+  state.order = state.players.filter(p => p.inGame).map(p => p.id);
+
+  const g = cv.games[n - 1];
+  setCarnivalKeeper(g.keepers[0]);
+  state.oppName = g.opp;
+  setMatchLocation(g.home ? 'home' : 'away');
+  state.keeperRotation.timerRunning = false;
+  clearInterval(keeperTimerInterval); keeperTimerInterval = null;
+
+  renderScoreDisplay();
+  updateGameTimerDisplay();
+  updateSubTimerDisplay();
+  renderCarnivalBanner();
+  switchScreen('game');
+  showNotification(`🏆 Carnival Game ${n} · vs ${g.opp}`);
 }
 
 function startCarnival() {
@@ -5707,7 +5818,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v63';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v64';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
