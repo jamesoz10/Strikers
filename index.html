@@ -2477,9 +2477,48 @@ function patchPalmwoodsGame() {
   saveSeasonData();
 }
 
+function patchCarnivalGame1() {
+  // One-time patch: fill player times for Carnival Game 1 vs Bli Bli Barons (22 Aug 2026)
+  // Data recovered from screenshot: score 8-4, times from % bars, goals from badges
+  // Keepers: Benji 1st half (720s), Miko 2nd half (720s)
+  const g = seasonData.games.find(g =>
+    g.carnival &&
+    g.opponent === 'Bli Bli Barons' &&
+    g.playerStats &&
+    Object.values(g.playerStats).every(p => !p.fieldSecs && !p.keeperSecs)
+  );
+  if (!g) return;
+  // Correct the score if it was entered as 0-0 from picker
+  if (g.result && g.result.team === 0 && g.result.opp === 0) {
+    g.result = { team: 8, opp: 4 };
+  }
+  // Field times (includes keeper time for Benji/Miko), keeper times, goals
+  // 24-min game, 8 players, 6 on field. Percentages from screenshot → ~18 min ideal
+  const patch = {
+    1: { fieldSecs:  960, keeperSecs:   0, goals: 0 }, // Matejo  91% ≈ 16 min
+    2: { fieldSecs:  780, keeperSecs:   0, goals: 1 }, // Arlo    72% ≈ 13 min  (1 goal)
+    3: { fieldSecs:  750, keeperSecs:   0, goals: 2 }, // Finley  69% ≈ 12.5 min (2 goals)
+    4: { fieldSecs: 1440, keeperSecs: 720, goals: 0 }, // Benji   full game, 1st half keeper
+    5: { fieldSecs:  750, keeperSecs:   0, goals: 0 }, // Fletcher 69% ≈ 12.5 min
+    6: { fieldSecs:  996, keeperSecs:   0, goals: 0 }, // Finlay  92% ≈ 16.6 min
+    7: { fieldSecs:  810, keeperSecs:   0, goals: 2 }, // Zak     75% ≈ 13.5 min (2 goals)
+    8: { fieldSecs:    0, keeperSecs:   0, goals: 0 }, // Harry   didn't play
+    9: { fieldSecs: 1020, keeperSecs: 720, goals: 3 }, // Miko    ~17 min + 2nd half keeper (3 goals)
+  };
+  Object.entries(patch).forEach(([id, d]) => {
+    if (g.playerStats[id]) {
+      g.playerStats[id].fieldSecs  = d.fieldSecs;
+      g.playerStats[id].keeperSecs = d.keeperSecs;
+      g.playerStats[id].goals      = d.goals;
+    }
+  });
+  saveSeasonData();
+}
+
 function init() {
   loadSeasonData();
   patchPalmwoodsGame();
+  patchCarnivalGame1();
   loadAppState();
   state.teamName = state.teamName || seasonData.teamName || 'Strikers';
   // oppName intentionally not carried over — it's per-game
@@ -3518,6 +3557,7 @@ function endCarnival() {
     });
   });
   saveSeasonData();
+  patchCarnivalGame1(); // fill Game 1 stats if they were lost due to app reset
   cv.active = false;
   renderCarnivalBanner();
   stopAllTimers();
@@ -5818,7 +5858,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v64';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v65';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
