@@ -2495,7 +2495,7 @@ function patchCarnivalGame1() {
     9:{name:'Miko',    number:5},
   };
   const DATA = {
-    1: { fieldSecs: 1316, keeperSecs:   0, goals: 0 }, // Matejo   21:56 on pitch
+    1: { fieldSecs: 1316, keeperSecs: 720, goals: 0 }, // Matejo   21:56 · 2nd half keeper
     2: { fieldSecs: 1043, keeperSecs:   0, goals: 1 }, // Arlo     17:23 · 1 goal
     3: { fieldSecs:  999, keeperSecs:   0, goals: 2 }, // Finley   16:39 · 2 goals
     4: { fieldSecs: 1440, keeperSecs: 720, goals: 0 }, // Benji    full game · 1st half keeper
@@ -2503,7 +2503,7 @@ function patchCarnivalGame1() {
     6: { fieldSecs: 1326, keeperSecs:   0, goals: 0 }, // Finlay   22:06
     7: { fieldSecs: 1075, keeperSecs:   0, goals: 2 }, // Zak      17:55 · 2 goals
     8: { fieldSecs:    0, keeperSecs:   0, goals: 0 }, // Harry    didn't play
-    9: { fieldSecs: 1030, keeperSecs: 720, goals: 3 }, // Miko     17:10 · 2nd half keeper · 3 goals
+    9: { fieldSecs: 1030, keeperSecs:   0, goals: 3 }, // Miko     17:10 · 3 goals
   };
   let g = seasonData.games.find(g => g.carnival && g.opponent === 'Bli Bli Barons');
   if (!g) {
@@ -5869,7 +5869,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v66';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v67';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
