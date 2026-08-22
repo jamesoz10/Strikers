@@ -2496,8 +2496,8 @@ function patchCarnivalGame1() {
   };
   const DATA = {
     1: { fieldSecs: 1316, keeperSecs: 720, goals: 0 }, // Matejo   21:56 · 2nd half keeper
-    2: { fieldSecs: 1043, keeperSecs:   0, goals: 0 }, // Arlo     17:23
-    3: { fieldSecs:  999, keeperSecs:   0, goals: 3 }, // Finley   16:39 · 3 goals (corrected)
+    2: { fieldSecs: 1043, keeperSecs:   0, goals: 1 }, // Arlo     17:23 · 1 goal
+    3: { fieldSecs:  999, keeperSecs:   0, goals: 2 }, // Finley   16:39 · 2 goals
     4: { fieldSecs: 1440, keeperSecs: 720, goals: 0 }, // Benji    full game · 1st half keeper
     5: { fieldSecs:  996, keeperSecs:   0, goals: 0 }, // Fletcher 16:36
     6: { fieldSecs: 1326, keeperSecs:   0, goals: 0 }, // Finlay   22:06
@@ -2544,7 +2544,7 @@ function patchCarnivalGame2() {
   const DATA = {
     1: { fieldSecs:  853, keeperSecs:   0, goals: 0 }, // Matejo   14:13
     2: { fieldSecs: 1124, keeperSecs: 720, goals: 0 }, // Arlo     18:44 · 2nd half keeper
-    3: { fieldSecs: 1268, keeperSecs: 720, goals: 0 }, // Finley   21:08 · 1st half keeper
+    3: { fieldSecs: 1268, keeperSecs: 720, goals: 3 }, // Finley   21:08 · 1st half keeper · 3 goals
     4: { fieldSecs:  910, keeperSecs:   0, goals: 0 }, // Benji    15:10
     5: { fieldSecs: 1142, keeperSecs:   0, goals: 0 }, // Fletcher 19:02
     6: { fieldSecs:  879, keeperSecs:   0, goals: 0 }, // Finlay   14:39
@@ -2557,10 +2557,10 @@ function patchCarnivalGame2() {
     const ps = {};
     Object.entries(PLAYERS).forEach(([id, p]) => { ps[id] = { name:p.name, number:p.number, goals:0, fieldSecs:0, keeperSecs:0 }; });
     g = { date:'22/08/26', opponent:'Currimundi Squids', teamName:'Strikers', location:'home',
-          result:{team:2,opp:2}, gameDuration:1440, subEvents:[], playerStats:ps, carnival:true };
+          result:{team:3,opp:2}, gameDuration:1440, subEvents:[], playerStats:ps, carnival:true };
     seasonData.games.push(g);
   }
-  g.result = { team: 2, opp: 2 };
+  g.result = { team: 3, opp: 2 };
   g.gameDuration = 1440;
   Object.entries(DATA).forEach(([id, d]) => {
     if (!g.playerStats[id]) g.playerStats[id] = { name:PLAYERS[id].name, number:PLAYERS[id].number, goals:0, fieldSecs:0, keeperSecs:0 };
@@ -5915,7 +5915,7 @@ init();
   document.getElementById("pwa-manifest").setAttribute("href", url);
 })();
 if ("serviceWorker" in navigator) {
-  var swCode = "const CACHE = 'strikers-sub-v68';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
+  var swCode = "const CACHE = 'strikers-sub-v69';self.addEventListener('install', function(e) { e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(['./']); }).then(function() { return self.skipWaiting(); })); });self.addEventListener('activate', function(e) { e.waitUntil(caches.keys().then(function(keys) { return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);})); }).then(function() { return self.clients.claim(); })); });self.addEventListener('fetch', function(e) { if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).then(function(r) { var rc = r.clone(); caches.open(CACHE).then(function(c) { c.put(e.request, rc); }); return r; }).catch(function() { return caches.match(e.request); })); return; } e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); })); });";
   var swBlob = new Blob([swCode], {type: "application/javascript"});
   var swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(function(){});
